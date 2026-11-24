@@ -1,0 +1,6 @@
+{
+  "name": "STUDY CORE — الصف الثاني عشر العلمي (عُمان)",
+  "description": "منصة تعليمية متكاملة لمنهج الصف الثاني عشر المسار العلمي بسلطنة عُمان (2026–2027) في الفيزياء والكيمياء والأحياء والرياضيات المتقدمة مع بنك أسئلة مركزي ومعلم ذكي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

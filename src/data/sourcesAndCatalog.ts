@@ -1,0 +1,550 @@
+import type {
+  AcademicYearRecord,
+  CurriculumSource,
+  LearningObjective,
+  OfficialLessonCatalogItem,
+  SemesterRecord,
+  VerificationRecord,
+} from '../types/curriculum';
+
+export const ACADEMIC_YEAR_2026_2027: AcademicYearRecord = {
+  id: '2026-2027',
+  labelAr: 'العام الدراسي 2026–2027',
+  trackAr: 'الصف الثاني عشر — المسار العلمي (دبلوم التعليم العام)',
+  countryAr: 'سلطنة عُمان',
+  isActive: true,
+};
+
+export const OMAN_SEMESTERS: SemesterRecord[] = [
+  {
+    id: '2026-2027-s1',
+    academicYearId: '2026-2027',
+    semester: 1,
+    titleAr: 'الفصل الدراسي الأول (2026–2027)',
+    isPublished: true,
+  },
+  {
+    id: '2026-2027-s2',
+    academicYearId: '2026-2027',
+    semester: 2,
+    titleAr: 'الفصل الدراسي الثاني (2026–2027)',
+    isPublished: true,
+  },
+];
+
+export const OMAN_CURRICULUM_SOURCES: CurriculumSource[] = [
+  {
+    id: 'src-phys-moe-s1',
+    titleAr: 'كتاب الطالب للفيزياء — الصف الثاني عشر (الفصل الأول، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_Phys_P1/files/thumb/1.jpg',
+    subjectId: 'physics',
+    semester: 1,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 1 إلى 5).',
+  },
+  {
+    id: 'src-phys-moe-s2',
+    titleAr: 'كتاب الطالب للفيزياء — الصف الثاني عشر (الفصل الثاني، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_Phys_P2/files/thumb/1.jpg',
+    subjectId: 'physics',
+    semester: 2,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية للوزارة؛ يتطلب فهرس دروس الوحدة السادسة (الموجات) مطابقة تفصيلية إضافية.',
+  },
+  {
+    id: 'src-chem-moe-s1',
+    titleAr: 'كتاب الطالب للكيمياء — الصف الثاني عشر (الفصل الأول، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_Chem_P1/files/mobile/1.jpg',
+    subjectId: 'chemistry',
+    semester: 1,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 1 إلى 4).',
+  },
+  {
+    id: 'src-chem-moe-s2',
+    titleAr: 'منهج الكيمياء — الصف الثاني عشر (الفصل الثاني، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان (مرجع بوابة المناهج)',
+    publicationYear: 2025,
+    url: 'https://home.moe.gov.om/',
+    subjectId: 'chemistry',
+    semester: 2,
+    sourceType: 'portal_reference',
+    verificationStatus: 'NEEDS_REVIEW',
+    notesAr: 'عناوين الوحدات (5–8) موثقة من فهارس المناهج العُمانية، بينما رابط ملف PDF المباشر لكتاب الفصل الثاني يحتاج مراجعة وتحقق في بوابة الوزارة.',
+  },
+  {
+    id: 'src-bio-moe-s1',
+    titleAr: 'كتاب الطالب للأحياء — الصف الثاني عشر (الفصل الأول، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_Bio_P1/files/thumb/1.jpg',
+    subjectId: 'biology',
+    semester: 1,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 1 إلى 5).',
+  },
+  {
+    id: 'src-bio-moe-s2',
+    titleAr: 'كتاب الطالب للأحياء — الصف الثاني عشر (الفصل الثاني، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_Bio_P2/files/mobile/1.jpg',
+    subjectId: 'biology',
+    semester: 2,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 6 إلى 9).',
+  },
+  {
+    id: 'src-math-moe-s1',
+    titleAr: 'كتاب الطالب للرياضيات المتقدمة — الصف الثاني عشر (الفصل الأول، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_MathAdvanceStd_P1/files/thumb/1.jpg',
+    subjectId: 'math',
+    semester: 1,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 1 إلى 4).',
+  },
+  {
+    id: 'src-math-moe-s2',
+    titleAr: 'كتاب الطالب للرياضيات المتقدمة — الصف الثاني عشر (الفصل الثاني، سلسلة كامبريدج عُمان)',
+    publisherAr: 'وزارة التربية والتعليم — سلطنة عُمان',
+    publicationYear: 2025,
+    url: 'https://ict.moe.gov.om/book/PDF/12/cls12_MathAdvanceCB_P2/files/mobile/1.jpg',
+    subjectId: 'math',
+    semester: 2,
+    sourceType: 'moe_textbook',
+    verificationStatus: 'VERIFIED',
+    notesAr: 'موثق عبر بوابة الكتب الرقمية لوزارة التربية والتعليم العُمانية (الوحدات 5 إلى 8).',
+  },
+];
+
+export const OFFICIAL_LEARNING_OBJECTIVES: LearningObjective[] = [
+  {
+    id: 'obj-phys-1',
+    subjectId: 'physics',
+    unitId: 'phys-u1',
+    lessonId: 'phys-u1-l1',
+    code: 'PH12-1.2',
+    statementAr: 'يحسب شدة مجال الجاذبية والسرعة المدارية والزمن الدوري للأقمار الصناعية باستخدام قانون نيوتن للجذب العام.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-phys-2',
+    subjectId: 'physics',
+    unitId: 'phys-u5',
+    lessonId: 'phys-u1-l2',
+    code: 'PH12-2.4',
+    statementAr: 'يستخدم قانون كولوم لحساب القوى والمجالات الكهربائية ويحسب الشغل والجهد الكهربائي.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-phys-3',
+    subjectId: 'physics',
+    unitId: 'phys-u6',
+    lessonId: 'phys-u6-l1',
+    code: 'PH12-3.4',
+    statementAr: 'يطبق قانوني كيرشوف لحفظ الشحنة وحفظ الطاقة في تحليل الدوائر الكهربائية متعددة الحلقات.',
+    bloomLevel: 'analyze',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-phys-4',
+    subjectId: 'physics',
+    unitId: 'phys-u7',
+    lessonId: 'phys-u7-l1',
+    code: 'PH12-4.3',
+    statementAr: 'يحسب السعة المكافئة والطاقة المختزنة ويصف منحنيات الشحن والتفريغ للمكثفات.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-chem-1',
+    subjectId: 'chemistry',
+    unitId: 'chem-u1',
+    lessonId: 'chem-u1-l2',
+    code: 'CH12-1.3',
+    statementAr: 'يحسب قيمة pH للأحماض الضعيفة والمحاليل المنظمة باستخدام ثوابت التفكك Ka ومعادلة هندرسون-هاسلبالخ.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-chem-2',
+    subjectId: 'chemistry',
+    unitId: 'chem-u1',
+    lessonId: 'chem-u1-l3',
+    code: 'CH12-1.5',
+    statementAr: 'يكتب تعبير حاصل الإذابة Ksp ويحسب الذوبانية المولارية ويتنبأ بتكون الراسب وأثر الأيون المشترك.',
+    bloomLevel: 'analyze',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-chem-3',
+    subjectId: 'chemistry',
+    unitId: 'chem-u5',
+    lessonId: 'chem-u5-l1',
+    code: 'CH12-3.2',
+    statementAr: 'يبني دورة بورن-هابر للمركبات الأيونية ويحسب طاقة الشبكة البلورية وإنثالبي الذوبان.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-bio-1',
+    subjectId: 'biology',
+    unitId: 'bio-u1',
+    lessonId: 'bio-u1-l1',
+    code: 'BI12-1.2',
+    statementAr: 'يشرح التركيب الجزيئي للأحماض النووية ودور الإنزيمات في التضاعف شبه المحافظ لـ DNA.',
+    bloomLevel: 'understand',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-bio-2',
+    subjectId: 'biology',
+    unitId: 'bio-u5',
+    lessonId: 'bio-u5-l1',
+    code: 'BI12-2.3',
+    statementAr: 'يستخدم المخططات الجينية ومربعات بانيت لتحليل التوارث المندلي والارتباط الجيني.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-bio-3',
+    subjectId: 'biology',
+    unitId: 'bio-u6',
+    lessonId: 'bio-u6-l1',
+    code: 'BI12-4.3',
+    statementAr: 'يفسر آلية عمل النفرون وهرمون ADH في الحفاظ على الاتزان الأسموزي لماء الجسم.',
+    bloomLevel: 'understand',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-math-1',
+    subjectId: 'math',
+    unitId: 'math-u1',
+    lessonId: 'math-u1-l1',
+    code: 'MA12-1.1',
+    statementAr: 'يحول الزوايا بين الدرجات والراديان ويحسب طول القوس ومساحة القطاع الدائري.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-math-2',
+    subjectId: 'math',
+    unitId: 'math-u5',
+    lessonId: 'math-u5-l1',
+    code: 'MA12-2.3',
+    statementAr: 'يستخدم المتطابقات المثلثية وزاوية الأساس في حل المعادلات المثلثية ضمن فترة محددة.',
+    bloomLevel: 'apply',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'obj-math-3',
+    subjectId: 'math',
+    unitId: 'math-u6',
+    lessonId: 'math-u6-l1',
+    code: 'MA12-3.2',
+    statementAr: 'يحسب النهايات الجبرية والنهايات عند اللانهاية ويتحقق من شروط اتصال الدالة عند نقطة.',
+    bloomLevel: 'analyze',
+    verificationStatus: 'VERIFIED',
+  },
+];
+
+// Complete verified catalog of official Grade 12 Oman curriculum lessons (147 slots across 34 units)
+export const OFFICIAL_CURRICULUM_CATALOG: OfficialLessonCatalogItem[] = [
+  // ================= PHYSICS (40 Official Lessons) =================
+  // Unit 1: Gravitational Fields (4)
+  { id: 'cat-ph-1-1', subjectId: 'physics', unitId: 'phys-u1', semester: 1, order: 1, titleAr: '1-1 تمثيل مجال الجاذبية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-1-2', subjectId: 'physics', unitId: 'phys-u1', semester: 1, order: 2, titleAr: '1-2 شدة مجال الجاذبية (g)', linkedLessonId: 'phys-u1-l1', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-1-3', subjectId: 'physics', unitId: 'phys-u1', semester: 1, order: 3, titleAr: '1-3 الطاقة وجهد الجاذبية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-1-4', subjectId: 'physics', unitId: 'phys-u1', semester: 1, order: 4, titleAr: '1-4 الدوران تحت تأثير الجاذبية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 2: Electric Fields (5) -> phys-u5
+  { id: 'cat-ph-2-1', subjectId: 'physics', unitId: 'phys-u5', semester: 1, order: 1, titleAr: '2-1 المجال الكهربائي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-2-2', subjectId: 'physics', unitId: 'phys-u5', semester: 1, order: 2, titleAr: '2-2 شدة المجال الكهربائي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-2-3', subjectId: 'physics', unitId: 'phys-u5', semester: 1, order: 3, titleAr: '2-3 القوة المؤثرة على شحنة كهربائية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-2-4', subjectId: 'physics', unitId: 'phys-u5', semester: 1, order: 4, titleAr: '2-4 قانون كولوم والمجالات الشعاعية', linkedLessonId: 'phys-u1-l2', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED', classificationNoteAr: 'أُعيد تصنيف الدرس من الوحدة ١ السابقة إلى الوحدة ٢ الرسمية.' },
+  { id: 'cat-ph-2-5', subjectId: 'physics', unitId: 'phys-u5', semester: 1, order: 5, titleAr: '2-5 الجهد وطاقة الوضع الكهربائية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 3: Electric Circuits (5) -> phys-u6
+  { id: 'cat-ph-3-1', subjectId: 'physics', unitId: 'phys-u6', semester: 1, order: 1, titleAr: '3-1 التيار الكهربائي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-3-2', subjectId: 'physics', unitId: 'phys-u6', semester: 1, order: 2, titleAr: '3-2 فرق الجهد الكهربائي والمقاومة', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-3-3', subjectId: 'physics', unitId: 'phys-u6', semester: 1, order: 3, titleAr: '3-3 المقاومة النوعية', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-3-4', subjectId: 'physics', unitId: 'phys-u6', semester: 1, order: 4, titleAr: '3-4 قانونا كيرشوف', linkedLessonId: 'phys-u6-l1', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-3-5', subjectId: 'physics', unitId: 'phys-u6', semester: 1, order: 5, titleAr: '3-5 الدوائر العملية (مقسّم الجهد)', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 4: Capacitors (5) -> phys-u7
+  { id: 'cat-ph-4-1', subjectId: 'physics', unitId: 'phys-u7', semester: 1, order: 1, titleAr: '4-1 التعرف على المكثفات', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-4-2', subjectId: 'physics', unitId: 'phys-u7', semester: 1, order: 2, titleAr: '4-2 الطاقة المخزنة في مكثف', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-4-3', subjectId: 'physics', unitId: 'phys-u7', semester: 1, order: 3, titleAr: '4-3 توصيل المكثفات على التوازي والتوالي', linkedLessonId: 'phys-u7-l1', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-4-4', subjectId: 'physics', unitId: 'phys-u7', semester: 1, order: 4, titleAr: '4-4 شبكات المكثفات', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-4-5', subjectId: 'physics', unitId: 'phys-u7', semester: 1, order: 5, titleAr: '4-5 شحن المكثفات وتفريغها', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 5: Magnetism & EM Induction (7) -> phys-u3
+  { id: 'cat-ph-5-1', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 1, titleAr: '5-1 توليد المجالات المغناطيسية وتمثيلها', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-5-2', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 2, titleAr: '5-2 القوة المغناطيسية وكثافة الفيض المغناطيسي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-5-3', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 3, titleAr: '5-3 المزيد عن القوى على الموصلات الحاملة لتيار', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-5-4', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 4, titleAr: '5-4 الحث الكهرومغناطيسي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-5-5', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 5, titleAr: '5-5 قانون فاراداي للحث الكهرومغناطيسي', linkedLessonId: 'phys-u3-l1', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED', classificationNoteAr: 'نُقلت الوحدة من الفصل الثاني سابقاً إلى موقعها الصحيح في الفصل الأول (الوحدة ٥).' },
+  { id: 'cat-ph-5-6', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 6, titleAr: '5-6 قانون لنز', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-5-7', subjectId: 'physics', unitId: 'phys-u3', semester: 1, order: 7, titleAr: '5-7 تطبيقات الحث الكهرومغناطيسي', sourceId: 'src-phys-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 6: Waves (3) -> phys-u2
+  { id: 'cat-ph-6-1', subjectId: 'physics', unitId: 'phys-u2', semester: 2, order: 1, titleAr: '6-1 خصائص الموجات وانتقالها (مع مراجعة التذبذبات التوافقية)', linkedLessonId: 'phys-u2-l1', sourceId: 'src-phys-moe-s2', verificationStatus: 'NEEDS_REVIEW', classificationNoteAr: 'نُقل من الفصل الأول إلى الفصل الثاني (الوحدة ٦) مع بيان أن الحركة التوافقية البسيطة مادة تأسيسية مرتبطة بالموجات.' },
+  { id: 'cat-ph-6-2', subjectId: 'physics', unitId: 'phys-u2', semester: 2, order: 2, titleAr: '6-2 الموجات المستعرضة والطولية والطيف الكهرومغناطيسي', sourceId: 'src-phys-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ph-6-3', subjectId: 'physics', unitId: 'phys-u2', semester: 2, order: 3, titleAr: '6-3 الاستقطاب وتطبيقاته', linkedLessonId: 'phys-u2-l2', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 7: Superposition of Waves (4) -> phys-u8
+  { id: 'cat-ph-7-1', subjectId: 'physics', unitId: 'phys-u8', semester: 2, order: 1, titleAr: '7-1 مبدأ التراكب والتداخل', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-7-2', subjectId: 'physics', unitId: 'phys-u8', semester: 2, order: 2, titleAr: '7-2 تجربة شقي يونغ للتداخل', linkedLessonId: 'phys-u8-l1', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-7-3', subjectId: 'physics', unitId: 'phys-u8', semester: 2, order: 3, titleAr: '7-3 الحيود وشبكات المحزاز الضوئي', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-7-4', subjectId: 'physics', unitId: 'phys-u8', semester: 2, order: 4, titleAr: '7-4 الموجات الموقوفة (المستقرة)', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 8: Quantum Physics (4) -> phys-u4
+  { id: 'cat-ph-8-1', subjectId: 'physics', unitId: 'phys-u4', semester: 2, order: 1, titleAr: '8-1 التأثير الكهروضوئي', linkedLessonId: 'phys-u4-l1', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-8-2', subjectId: 'physics', unitId: 'phys-u4', semester: 2, order: 2, titleAr: '8-2 طاقات الفوتونات وتأثير كومبتون', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-8-3', subjectId: 'physics', unitId: 'phys-u4', semester: 2, order: 3, titleAr: '8-3 مستويات الطاقة وطيف الانبعاث والامتصاص', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-8-4', subjectId: 'physics', unitId: 'phys-u4', semester: 2, order: 4, titleAr: '8-4 موجات دي بروي والطبيعة المزدوجة', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 9: Nuclear Physics (3) -> phys-u9
+  { id: 'cat-ph-9-1', subjectId: 'physics', unitId: 'phys-u9', semester: 2, order: 1, titleAr: '9-1 النواة والنشاط الإشعاعي وعمر النصف', linkedLessonId: 'phys-u4-l2', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-9-2', subjectId: 'physics', unitId: 'phys-u9', semester: 2, order: 2, titleAr: '9-2 طاقة الربط النووي والكتلة المكافئة', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ph-9-3', subjectId: 'physics', unitId: 'phys-u9', semester: 2, order: 3, titleAr: '9-3 الانشطار والاندماج النووي', sourceId: 'src-phys-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // ================= CHEMISTRY (30 Official Lessons) =================
+  // Unit 1: Equilibria in Aqueous Solutions (5) -> chem-u1
+  { id: 'cat-ch-1-1', subjectId: 'chemistry', unitId: 'chem-u1', semester: 1, order: 1, titleAr: '1-1 الأحماض والقواعد ومفاهيم برونستد-لوري (مع مراجعة Kc)', linkedLessonId: 'chem-u1-l1', sourceId: 'src-chem-moe-s1', verificationStatus: 'OUTDATED', classificationNoteAr: 'الدرس الحالي chem-u1-l1 يركز على Kc و Kp (الصف الحادي عشر) ويحتاج استبدالاً أو فصلاً عن التمهيد.' },
+  { id: 'cat-ch-1-2', subjectId: 'chemistry', unitId: 'chem-u1', semester: 1, order: 2, titleAr: '1-2 ثابت تفكك الحمض Ka وثابت تفكك القاعدة Kb', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-1-3', subjectId: 'chemistry', unitId: 'chem-u1', semester: 1, order: 3, titleAr: '1-3 الرقم الهيدروجيني pH والمحاليل المنظمة', linkedLessonId: 'chem-u1-l2', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-1-4', subjectId: 'chemistry', unitId: 'chem-u1', semester: 1, order: 4, titleAr: '1-4 المعايرة ومؤشرات الأحماض والقواعد', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-1-5', subjectId: 'chemistry', unitId: 'chem-u1', semester: 1, order: 5, titleAr: '1-5 حاصل الإذابة Ksp وأثر الأيون المشترك', linkedLessonId: 'chem-u1-l3', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 2: Electrochemistry (3) -> chem-u2
+  { id: 'cat-ch-2-1', subjectId: 'chemistry', unitId: 'chem-u2', semester: 1, order: 1, titleAr: '2-1 جهود الخلايا والجهد القياسي للاختزال E°', linkedLessonId: 'chem-u2-l1', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-2-2', subjectId: 'chemistry', unitId: 'chem-u2', semester: 1, order: 2, titleAr: '2-2 خلايا الوقود ومعادلة نيرنست وخلايا التحليل الكهربائي', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-2-3', subjectId: 'chemistry', unitId: 'chem-u2', semester: 1, order: 3, titleAr: '2-3 الحسابات الكمية للتحليل الكهربائي (قوانين فاراداي)', linkedLessonId: 'chem-u2-l2', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 3: Lattice Energy (3) -> chem-u5
+  { id: 'cat-ch-3-1', subjectId: 'chemistry', unitId: 'chem-u5', semester: 1, order: 1, titleAr: '3-1 طاقة الشبكة البلورية وعوامل تأثرها', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-3-2', subjectId: 'chemistry', unitId: 'chem-u5', semester: 1, order: 2, titleAr: '3-2 دورة بورن-هابر', linkedLessonId: 'chem-u5-l1', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-3-3', subjectId: 'chemistry', unitId: 'chem-u5', semester: 1, order: 3, titleAr: '3-3 إنثالبي الذوبان وإنثالبي الإماهة للأيونات', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 4: Hydrocarbon Derivatives 1 (4) -> chem-u6
+  { id: 'cat-ch-4-1', subjectId: 'chemistry', unitId: 'chem-u6', semester: 1, order: 1, titleAr: '4-1 الهالوجينوألكانات', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-4-2', subjectId: 'chemistry', unitId: 'chem-u6', semester: 1, order: 2, titleAr: '4-2 مركبات الهيدروكسيل (الكحولات)', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-4-3', subjectId: 'chemistry', unitId: 'chem-u6', semester: 1, order: 3, titleAr: '4-3 مركبات الكربونيل (الألدهيدات والكيتونات)', linkedLessonId: 'chem-u6-l1', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ch-4-4', subjectId: 'chemistry', unitId: 'chem-u6', semester: 1, order: 4, titleAr: '4-4 الأحماض الكربوكسيلية ومشتقاتها', sourceId: 'src-chem-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 5: Transition Elements (4) -> chem-u4
+  { id: 'cat-ch-5-1', subjectId: 'chemistry', unitId: 'chem-u4', semester: 2, order: 1, titleAr: '5-1 الخصائص العامة للعناصر الانتقالية', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-5-2', subjectId: 'chemistry', unitId: 'chem-u4', semester: 2, order: 2, titleAr: '5-2 الليجندات وتكوين المعقدات التناسقية', linkedLessonId: 'chem-u4-l1', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-5-3', subjectId: 'chemistry', unitId: 'chem-u4', semester: 2, order: 3, titleAr: '5-3 تفاعلات استبدال الليجندات', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-5-4', subjectId: 'chemistry', unitId: 'chem-u4', semester: 2, order: 4, titleAr: '5-4 ألوان المعقدات الانتقالية', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+
+  // Unit 6: Chemical Kinetics (4) -> chem-u3
+  { id: 'cat-ch-6-1', subjectId: 'chemistry', unitId: 'chem-u3', semester: 2, order: 1, titleAr: '6-1 معدل سرعة التفاعل الكيميائي', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-6-2', subjectId: 'chemistry', unitId: 'chem-u3', semester: 2, order: 2, titleAr: '6-2 تحديد رتبة التفاعل', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-6-3', subjectId: 'chemistry', unitId: 'chem-u3', semester: 2, order: 3, titleAr: '6-3 معادلة معدل السرعة وثابت السرعة وأرهينيوس', linkedLessonId: 'chem-u3-l1', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-6-4', subjectId: 'chemistry', unitId: 'chem-u3', semester: 2, order: 4, titleAr: '6-4 الحفز الكيميائي المتجانس وغير المتجانس', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+
+  // Unit 7: Entropy & Gibbs Free Energy (3) -> chem-u7
+  { id: 'cat-ch-7-1', subjectId: 'chemistry', unitId: 'chem-u7', semester: 2, order: 1, titleAr: '7-1 مفهوم الإنتروبي (S) والعوامل المؤثرة عليه', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-7-2', subjectId: 'chemistry', unitId: 'chem-u7', semester: 2, order: 2, titleAr: '7-2 حساب التغير في الإنتروبي الكلي والنظام والمحيط', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-7-3', subjectId: 'chemistry', unitId: 'chem-u7', semester: 2, order: 3, titleAr: '7-3 طاقة جبس الحرة (G) وعلاقتها بالتلقائية والاتزان', linkedLessonId: 'chem-u7-l1', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+
+  // Unit 8: Further Hydrocarbon Derivatives 2 (4) -> chem-u8
+  { id: 'cat-ch-8-1', subjectId: 'chemistry', unitId: 'chem-u8', semester: 2, order: 1, titleAr: '8-1 حلقة البنزين والخواص العطرية', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-8-2', subjectId: 'chemistry', unitId: 'chem-u8', semester: 2, order: 2, titleAr: '8-2 تفاعلات الأرينات (الهلجنة والنيترة والألكلة)', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-8-3', subjectId: 'chemistry', unitId: 'chem-u8', semester: 2, order: 3, titleAr: '8-3 الفينولات وحموضتها وتفاعلاتها', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+  { id: 'cat-ch-8-4', subjectId: 'chemistry', unitId: 'chem-u8', semester: 2, order: 4, titleAr: '8-4 الأمينات وتحضيرها وقاعديتها', sourceId: 'src-chem-moe-s2', verificationStatus: 'NEEDS_REVIEW' },
+
+  // ================= BIOLOGY (43 Official Lessons) =================
+  // Unit 1: Nucleic Acids & Protein Synthesis (5) -> bio-u1
+  { id: 'cat-bi-1-1', subjectId: 'biology', unitId: 'bio-u1', semester: 1, order: 1, titleAr: '1-1 تركيب DNA و RNA', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-1-2', subjectId: 'biology', unitId: 'bio-u1', semester: 1, order: 2, titleAr: '1-2 تضاعف DNA شبه المحافظ', linkedLessonId: 'bio-u1-l1', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-1-3', subjectId: 'biology', unitId: 'bio-u1', semester: 1, order: 3, titleAr: '1-3 الشيفرة الجينية', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-1-4', subjectId: 'biology', unitId: 'bio-u1', semester: 1, order: 4, titleAr: '1-4 بناء البروتين (النسخ والترجمة)', linkedLessonId: 'bio-u1-l2', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-1-5', subjectId: 'biology', unitId: 'bio-u1', semester: 1, order: 5, titleAr: '1-5 الطفرات الجينية', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 2: Inheritance (6) -> bio-u5
+  { id: 'cat-bi-2-1', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 1, titleAr: '2-1 الأمشاج والتكاثر', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-2-2', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 2, titleAr: '2-2 كيف يحدث التباين الجيني؟', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-2-3', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 3, titleAr: '2-3 الوراثة (قوانين مندل والتحليل الوراثي)', linkedLessonId: 'bio-u5-l1', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-2-4', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 4, titleAr: '2-4 الوراثة والمخططات الجينية ومربعات بانيت', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-2-5', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 5, titleAr: '2-5 الجينات والبروتينات والطراز المظهري', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-2-6', subjectId: 'biology', unitId: 'bio-u5', semester: 1, order: 6, titleAr: '2-6 التحكم في التعبير الجيني', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 3: Gene Technology (5) -> bio-u4 (Fixed Sem 2 -> Sem 1)
+  { id: 'cat-bi-3-1', subjectId: 'biology', unitId: 'bio-u4', semester: 1, order: 1, titleAr: '3-1 الهندسة الجينية', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-3-2', subjectId: 'biology', unitId: 'bio-u4', semester: 1, order: 2, titleAr: '3-2 أدوات تقنية الجينات', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-3-3', subjectId: 'biology', unitId: 'bio-u4', semester: 1, order: 3, titleAr: '3-3 فصل وتضخيم DNA (PCR والرحلان الكهربائي)', linkedLessonId: 'bio-u4-l1', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED', classificationNoteAr: 'نُقل من الفصل الثاني سابقاً إلى موقعه الصحيح في الفصل الأول (الوحدة ٣).' },
+  { id: 'cat-bi-3-4', subjectId: 'biology', unitId: 'bio-u4', semester: 1, order: 4, titleAr: '3-4 التقنية الجينية والطب', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-3-5', subjectId: 'biology', unitId: 'bio-u4', semester: 1, order: 5, titleAr: '3-5 التقنية الجينية والزراعة', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 4: Homeostasis (5) -> bio-u6
+  { id: 'cat-bi-4-1', subjectId: 'biology', unitId: 'bio-u6', semester: 1, order: 1, titleAr: '4-1 الاتزان الداخلي (مفهومه وأهميته)', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-4-2', subjectId: 'biology', unitId: 'bio-u6', semester: 1, order: 2, titleAr: '4-2 تركيب الكلية', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-4-3', subjectId: 'biology', unitId: 'bio-u6', semester: 1, order: 3, titleAr: '4-3 التحكم في المحتوى المائي (التنظيم الأسموزي)', linkedLessonId: 'bio-u6-l1', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-4-4', subjectId: 'biology', unitId: 'bio-u6', semester: 1, order: 4, titleAr: '4-4 التحكم في تركيز جلوكوز الدم', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-4-5', subjectId: 'biology', unitId: 'bio-u6', semester: 1, order: 5, titleAr: '4-5 الاتزان الداخلي في النباتات', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 5: Control & Coordination (4) -> bio-u2
+  { id: 'cat-bi-5-1', subjectId: 'biology', unitId: 'bio-u2', semester: 1, order: 1, titleAr: '5-1 مقارنة جهاز الغدد الصماء والجهاز العصبي', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-5-2', subjectId: 'biology', unitId: 'bio-u2', semester: 1, order: 2, titleAr: '5-2 التواصل العصبي وجهد الفعل والتشابك', linkedLessonId: 'bio-u2-l1', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-5-3', subjectId: 'biology', unitId: 'bio-u2', semester: 1, order: 3, titleAr: '5-3 الانقباض العضلي', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-5-4', subjectId: 'biology', unitId: 'bio-u2', semester: 1, order: 4, titleAr: '5-4 التحكم والتنسيق في النباتات', sourceId: 'src-bio-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 6: Energy & Respiration (4) -> bio-u3
+  { id: 'cat-bi-6-1', subjectId: 'biology', unitId: 'bio-u3', semester: 2, order: 1, titleAr: '6-1 حاجة الكائنات الحية إلى الطاقة وATP', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-6-2', subjectId: 'biology', unitId: 'bio-u3', semester: 2, order: 2, titleAr: '6-2 التنفس الهوائي والفسفرة التأكسدية', linkedLessonId: 'bio-u3-l1', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-6-3', subjectId: 'biology', unitId: 'bio-u3', semester: 2, order: 3, titleAr: '6-3 تركيب الميتوكندريا ووظيفتها', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-6-4', subjectId: 'biology', unitId: 'bio-u3', semester: 2, order: 4, titleAr: '6-4 التنفس من دون الأكسجين (اللاهوائي)', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 7: Photosynthesis (4) -> bio-u7
+  { id: 'cat-bi-7-1', subjectId: 'biology', unitId: 'bio-u7', semester: 2, order: 1, titleAr: '7-1 تركيب ووظيفة البلاستيدات الخضراء', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-7-2', subjectId: 'biology', unitId: 'bio-u7', semester: 2, order: 2, titleAr: '7-2 التفاعلات المعتمدة على الضوء وحلقة كالفن', linkedLessonId: 'bio-u3-l2', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-7-3', subjectId: 'biology', unitId: 'bio-u7', semester: 2, order: 3, titleAr: '7-3 التفاعلات غير المعتمدة على الضوء (كالفن)', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-7-4', subjectId: 'biology', unitId: 'bio-u7', semester: 2, order: 4, titleAr: '7-4 العوامل المحددة لعملية التمثيل الضوئي', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 8: Infectious Diseases & Immunity (5) -> bio-u8
+  { id: 'cat-bi-8-1', subjectId: 'biology', unitId: 'bio-u8', semester: 2, order: 1, titleAr: '8-1 الأمراض المعدية', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-8-2', subjectId: 'biology', unitId: 'bio-u8', semester: 2, order: 2, titleAr: '8-2 المضادات الحيوية والاستجابة المناعية', linkedLessonId: 'bio-u8-l1', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-8-3', subjectId: 'biology', unitId: 'bio-u8', semester: 2, order: 3, titleAr: '8-3 الدفاعات ضد المرض', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-8-4', subjectId: 'biology', unitId: 'bio-u8', semester: 2, order: 4, titleAr: '8-4 خلايا جهاز المناعة', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-8-5', subjectId: 'biology', unitId: 'bio-u8', semester: 2, order: 5, titleAr: '8-5 المناعة الإيجابية والمناعة السلبية', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 9: Classification, Biodiversity & Conservation (5) -> bio-u9
+  { id: 'cat-bi-9-1', subjectId: 'biology', unitId: 'bio-u9', semester: 2, order: 1, titleAr: '9-1 التصنيف', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-9-2', subjectId: 'biology', unitId: 'bio-u9', semester: 2, order: 2, titleAr: '9-2 التنوع البيولوجي والحفاظ عليه', linkedLessonId: 'bio-u9-l1', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-9-3', subjectId: 'biology', unitId: 'bio-u9', semester: 2, order: 3, titleAr: '9-3 الحفاظ على التنوع البيولوجي', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-9-4', subjectId: 'biology', unitId: 'bio-u9', semester: 2, order: 4, titleAr: '9-4 إدارة أعداد الأنواع', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-bi-9-5', subjectId: 'biology', unitId: 'bio-u9', semester: 2, order: 5, titleAr: '9-5 منظمات الحماية الدولية', sourceId: 'src-bio-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // ================= ADVANCED MATHEMATICS (34 Official Lessons) =================
+  // Unit 1: Circular Measure (3) -> math-u1
+  { id: 'cat-ma-1-1', subjectId: 'math', unitId: 'math-u1', semester: 1, order: 1, titleAr: '1-1 مفهوم الراديان والقياس الدائري', linkedLessonId: 'math-u1-l1', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED', classificationNoteAr: 'يتضمن الدرس القياس الدائري أساسياً، مع إشارة إلى أن اشتقاق الدوال المثلثية يدرس تفصيلاً في الوحدة ٥.' },
+  { id: 'cat-ma-1-2', subjectId: 'math', unitId: 'math-u1', semester: 1, order: 2, titleAr: '1-2 طول القوس وتطبيقاته', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-1-3', subjectId: 'math', unitId: 'math-u1', semester: 1, order: 3, titleAr: '1-3 مساحة القطاع الدائري والقطعة الدائرية', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 2: Trigonometry (4) -> math-u5
+  { id: 'cat-ma-2-1', subjectId: 'math', unitId: 'math-u5', semester: 1, order: 1, titleAr: '2-1 النسب المثلثية للزوايا العامة والخاصة', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-2-2', subjectId: 'math', unitId: 'math-u5', semester: 1, order: 2, titleAr: '2-2 زاوية الأساس', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-2-3', subjectId: 'math', unitId: 'math-u5', semester: 1, order: 3, titleAr: '2-3 المتطابقات المثلثية وحل المعادلات', linkedLessonId: 'math-u5-l1', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-2-4', subjectId: 'math', unitId: 'math-u5', semester: 1, order: 4, titleAr: '2-4 التمثيلات البيانية للدوال المثلثية والدوال العكسية', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 3: Limits & Continuity (3) -> math-u6
+  { id: 'cat-ma-3-1', subjectId: 'math', unitId: 'math-u6', semester: 1, order: 1, titleAr: '3-1 مفاهيم النهايات وأنواعها وخصائصها', linkedLessonId: 'math-u6-l1', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-3-2', subjectId: 'math', unitId: 'math-u6', semester: 1, order: 2, titleAr: '3-2 النهايات عند اللانهاية', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-3-3', subjectId: 'math', unitId: 'math-u6', semester: 1, order: 3, titleAr: '3-3 اتصال الدوال', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 4: Differentiation (5) -> math-u2
+  { id: 'cat-ma-4-1', subjectId: 'math', unitId: 'math-u2', semester: 1, order: 1, titleAr: '4-1 مفهوم المشتقة وعلاقتها بميل المنحنى', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-4-2', subjectId: 'math', unitId: 'math-u2', semester: 1, order: 2, titleAr: '4-2 مشتقة دالة القوة', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-4-3', subjectId: 'math', unitId: 'math-u2', semester: 1, order: 3, titleAr: '4-3 قاعدة السلسلة', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-4-4', subjectId: 'math', unitId: 'math-u2', semester: 1, order: 4, titleAr: '4-4 تطبيقات على المماس والعمودي', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-4-5', subjectId: 'math', unitId: 'math-u2', semester: 1, order: 5, titleAr: '4-5 الدوال المتزايدة والمتناقصة والنقاط الحرجة', linkedLessonId: 'math-u2-l1', sourceId: 'src-math-moe-s1', verificationStatus: 'VERIFIED' },
+
+  // Unit 5: Further Differentiation (5) -> math-u7
+  { id: 'cat-ma-5-1', subjectId: 'math', unitId: 'math-u7', semester: 2, order: 1, titleAr: '5-1 قاعدة مشتقة ضرب دالتين', linkedLessonId: 'math-u7-l1', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-5-2', subjectId: 'math', unitId: 'math-u7', semester: 2, order: 2, titleAr: '5-2 قاعدة مشتقة قسمة دالتين', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-5-3', subjectId: 'math', unitId: 'math-u7', semester: 2, order: 3, titleAr: '5-3 مشتقات الدوال الأسية واللوغاريتمية الطبيعية', linkedLessonId: 'math-u1-l2', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED', classificationNoteAr: 'نُقل من الفصل الأول (الوحدة ١) إلى الوحدة الخامسة الرسمية في الفصل الثاني.' },
+  { id: 'cat-ma-5-4', subjectId: 'math', unitId: 'math-u7', semester: 2, order: 4, titleAr: '5-4 مشتقات الدوال اللوغاريتمية الطبيعية (تطبيقات)', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-5-5', subjectId: 'math', unitId: 'math-u7', semester: 2, order: 5, titleAr: '5-5 مشتقات الدوال المثلثية', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 6: Integration (6) -> math-u3
+  { id: 'cat-ma-6-1', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 1, titleAr: '6-1 التكامل كعملية عكسية للتفاضل', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-6-2', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 2, titleAr: '6-2 تكامل العبارات في صورة (ax + b)^n', linkedLessonId: 'math-u3-l2', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-6-3', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 3, titleAr: '6-3 المزيد من التكامل غير المحدود وإيجاد ثابت التكامل', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-6-4', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 4, titleAr: '6-4 التكامل المحدود', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-6-5', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 5, titleAr: '6-5 حساب المساحة تحت المنحنى والمساحة بين منحنيين والحجوم', linkedLessonId: 'math-u3-l1', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-6-6', subjectId: 'math', unitId: 'math-u3', semester: 2, order: 6, titleAr: '6-6 حجوم الأجسام الدورانية', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 7: Complex Numbers (4) -> math-u8
+  { id: 'cat-ma-7-1', subjectId: 'math', unitId: 'math-u8', semester: 2, order: 1, titleAr: '7-1 الأعداد التخيلية والأعداد المركبة', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-7-2', subjectId: 'math', unitId: 'math-u8', semester: 2, order: 2, titleAr: '7-2 العمليات على الأعداد المركبة', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-7-3', subjectId: 'math', unitId: 'math-u8', semester: 2, order: 3, titleAr: '7-3 المستوى المركب (مخطط أرجاند) والصورة القطبية', linkedLessonId: 'math-u2-l2', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED', classificationNoteAr: 'نُقل من الفصل الأول إلى الفصل الثاني (الوحدة ٧: الأعداد المركبة).' },
+  { id: 'cat-ma-7-4', subjectId: 'math', unitId: 'math-u8', semester: 2, order: 4, titleAr: '7-4 حل المعادلات باستخدام الأعداد المركبة', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+
+  // Unit 8: Normal Distribution (4) -> math-u4
+  { id: 'cat-ma-8-1', subjectId: 'math', unitId: 'math-u4', semester: 2, order: 1, titleAr: '8-1 المتغير العشوائي المتصل والمنحنى الطبيعي', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-8-2', subjectId: 'math', unitId: 'math-u4', semester: 2, order: 2, titleAr: '8-2 التوزيع الطبيعي وخصائصه', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+  { id: 'cat-ma-8-3', subjectId: 'math', unitId: 'math-u4', semester: 2, order: 3, titleAr: '8-3 معيارية التوزيع الطبيعي (المتغير Z)', linkedLessonId: 'math-u4-l1', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED', classificationNoteAr: 'يتضمن الدرس المعياري Z الرسمي، مع التنبيه إلى أن المعادلات التفاضلية موضوع إثرائي منفصل عن الوحدة ٨.' },
+  { id: 'cat-ma-8-4', subjectId: 'math', unitId: 'math-u4', semester: 2, order: 4, titleAr: '8-4 إيجاد الاحتمالات والمعلمات (μ و σ)', sourceId: 'src-math-moe-s2', verificationStatus: 'VERIFIED' },
+];
+
+export const INITIAL_VERIFICATION_RECORDS: VerificationRecord[] = [
+  {
+    id: 'ver-phys-reclassify-u2',
+    entityType: 'lesson',
+    entityId: 'phys-u2-l1',
+    status: 'NEEDS_REVIEW',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'تم نقل درس الحركة التوافقية البسيطة من الفصل الأول إلى الوحدة السادسة (الموجات - الفصل الثاني) لأن منهج الفيزياء للصف الثاني عشر في عُمان لا يخصص وحدة مستقلة للحركة التوافقية في الفصل الأول.',
+    sourceIds: ['src-phys-moe-s2'],
+  },
+  {
+    id: 'ver-phys-reclassify-u3',
+    entityType: 'unit',
+    entityId: 'phys-u3',
+    status: 'VERIFIED',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'تم تصحيح تصنيف وحدة المغناطيسية والحث الكهرومغناطيسي من الفصل الثاني إلى الوحدة الخامسة في الفصل الدراسي الأول وفق كتاب الفيزياء العُماني.',
+    sourceIds: ['src-phys-moe-s1'],
+  },
+  {
+    id: 'ver-chem-outdated-l1',
+    entityType: 'lesson',
+    entityId: 'chem-u1-l1',
+    status: 'OUTDATED',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'يغطي هذا الدرس ثابت الاتزان Kc ومبدأ لوشاتيليه (منهج الصف الحادي عشر)، بينما تبدأ الوحدة الأولى للصف الثاني عشر بالاتزان في المحاليل المائية (Ka, Kb, pH, Ksp). أُضيف درس Ksp الجديد مع الإبقاء على هذا الدرس كمرجع تمهيدي مُعلّم للمراجعة.',
+    sourceIds: ['src-chem-moe-s1'],
+  },
+  {
+    id: 'ver-chem-src-s2',
+    entityType: 'source',
+    entityId: 'src-chem-moe-s2',
+    status: 'NEEDS_REVIEW',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'عناوين الوحدات ٥–٨ موثقة من فهارس المناهج العُمانية، لكن الرابط المباشر لكتاب الكيمياء الفصل الثاني في ict.moe.gov.om يتطلب تحققاً مباشراً عند التوفر.',
+    sourceIds: ['src-chem-moe-s2'],
+  },
+  {
+    id: 'ver-bio-reclassify-u4',
+    entityType: 'unit',
+    entityId: 'bio-u4',
+    status: 'VERIFIED',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'تم تصحيح تصنيف وحدة التقنية الجينية من الفصل الثاني إلى الفصل الدراسي الأول (الوحدة الثالثة) وفق كتاب الأحياء العُماني.',
+    sourceIds: ['src-bio-moe-s1'],
+  },
+  {
+    id: 'ver-math-reclassify-u7-u8',
+    entityType: 'lesson',
+    entityId: 'math-u2-l2',
+    status: 'VERIFIED',
+    reviewerAr: 'فريق التدقيق العلمي — STUDY CORE',
+    reviewedAtIso: '2026-11-24T08:00:00Z',
+    notesAr: 'تم تصحيح تصنيف الأعداد المركبة ومشتقات الدوال الأسية واللوغاريتمية من الفصل الأول إلى الفصل الدراسي الثاني (الوحدتين الخامسة والسابعة) وفق كتاب الرياضيات المتقدمة العُماني.',
+    sourceIds: ['src-math-moe-s2'],
+  },
+];
