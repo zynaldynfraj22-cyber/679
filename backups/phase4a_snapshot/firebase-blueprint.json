@@ -1,0 +1,440 @@
+{
+  "entities": {
+    "AcademicYear": {
+      "title": "AcademicYear",
+      "description": "Active Omani academic year configuration (e.g., 2026-2027).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "labelAr": { "type": "string", "minLength": 4, "maxLength": 120 },
+        "trackAr": { "type": "string", "minLength": 4, "maxLength": 160 },
+        "countryAr": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "labelAr", "trackAr", "countryAr", "isActive", "updatedAt"]
+    },
+    "Semester": {
+      "title": "Semester",
+      "description": "Academic semester record linked to an academic year.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "academicYearId": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "semester": { "type": "integer" },
+        "titleAr": { "type": "string", "minLength": 4, "maxLength": 140 },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "academicYearId", "semester", "titleAr", "isPublished", "updatedAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Omani Grade 12 Scientific Track core subject (Physics, Chemistry, Biology, Advanced Mathematics).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "titleAr": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "titleEn": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 24, "pattern": "^[A-Z0-9\\-]+$" },
+        "descriptionAr": { "type": "string", "minLength": 10, "maxLength": 600 },
+        "accentColor": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "order": { "type": "integer" },
+        "totalUnits": { "type": "integer" },
+        "totalLessons": { "type": "integer" },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "titleAr", "titleEn", "code", "descriptionAr", "order", "isPublished", "updatedAt"]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "Curriculum unit belonging to a Grade 12 subject and semester.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "semester": { "type": "integer" },
+        "unitNumber": { "type": "integer" },
+        "titleAr": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "summaryAr": { "type": "string", "minLength": 10, "maxLength": 600 },
+        "objectivesAr": { "type": "array" },
+        "officialLessonCount": { "type": "integer" },
+        "sourceId": { "type": "string", "maxLength": 128 },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "semester", "unitNumber", "titleAr", "summaryAr", "isPublished", "updatedAt"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Centrally managed 6-part standardized lesson aligned with the Omani Ministry of Education curriculum.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "unitId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "semester": { "type": "integer" },
+        "order": { "type": "integer" },
+        "titleAr": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "estimatedMinutes": { "type": "integer" },
+        "officialRef": { "type": "string", "minLength": 3, "maxLength": 180 },
+        "academicYearId": { "type": "string", "maxLength": 32 },
+        "summaryAr": { "type": "string", "minLength": 10, "maxLength": 4000 },
+        "keyPointsAr": { "type": "array" },
+        "keyFormulas": { "type": "array" },
+        "introduction": { "type": "object" },
+        "sections": { "type": "array" },
+        "comprehensiveSummary": { "type": "object" },
+        "solvedExamples": { "type": "array" },
+        "exercises": { "type": "array" },
+        "review": { "type": "object" },
+        "sourceIds": { "type": "array" },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "aiGenerated": { "type": "boolean" },
+        "classificationNoteAr": { "type": "string", "maxLength": 600 },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "unitId", "semester", "order", "titleAr", "estimatedMinutes", "officialRef", "summaryAr", "isPublished", "updatedAt"]
+    },
+    "LearningObjective": {
+      "title": "LearningObjective",
+      "description": "Official measurable learning objective mapped to subject, unit, and optional lesson.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "unitId": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "lessonId": { "type": "string", "maxLength": 64 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "statementAr": { "type": "string", "minLength": 5, "maxLength": 500 },
+        "bloomLevel": { "type": "string", "enum": ["remember", "understand", "apply", "analyze"] },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "unitId", "code", "statementAr", "bloomLevel", "verificationStatus", "updatedAt"]
+    },
+    "CurriculumSource": {
+      "title": "CurriculumSource",
+      "description": "Official curriculum textbook, teacher guide, or MOE portal source reference.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "titleAr": { "type": "string", "minLength": 4, "maxLength": 220 },
+        "publisherAr": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "publicationYear": { "type": "integer" },
+        "url": { "type": "string", "minLength": 8, "maxLength": 500 },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "semester": { "type": "integer" },
+        "sourceType": { "type": "string", "enum": ["moe_textbook", "moe_guide", "cambridge_spec", "portal_reference"] },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "notesAr": { "type": "string", "maxLength": 800 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "titleAr", "publisherAr", "publicationYear", "url", "subjectId", "semester", "sourceType", "verificationStatus", "updatedAt"]
+    },
+    "VerificationRecord": {
+      "title": "VerificationRecord",
+      "description": "Audit and verification record tracking curriculum approvals and reclassifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "entityType": { "type": "string", "enum": ["subject", "unit", "lesson", "source"] },
+        "entityId": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["VERIFIED", "NEEDS_REVIEW", "OUTDATED", "UNAVAILABLE"] },
+        "reviewerAr": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "reviewedAtIso": { "type": "string", "minLength": 10, "maxLength": 64 },
+        "notesAr": { "type": "string", "maxLength": 1000 },
+        "sourceIds": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "entityType", "entityId", "status", "reviewerAr", "reviewedAtIso", "notesAr", "updatedAt"]
+    },
+    "PublicQuestion": {
+      "title": "PublicQuestion",
+      "description": "Student-safe public question bank entry strictly excluding answer keys and grading explanations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "academicYearId": { "type": "string", "maxLength": 32 },
+        "gradeAr": { "type": "string", "maxLength": 80 },
+        "trackAr": { "type": "string", "maxLength": 80 },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "unitId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "lessonId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "learningObjectiveId": { "type": "string", "maxLength": 128 },
+        "semester": { "type": "integer" },
+        "difficulty": { "type": "string", "enum": ["foundation", "basic_application", "intermediate", "advanced", "olympiad"] },
+        "difficultyLevel": { "type": "integer" },
+        "questionType": {
+          "type": "string",
+          "enum": [
+            "mcq",
+            "multi_select",
+            "true_false",
+            "fill_blank",
+            "short_answer",
+            "numeric",
+            "matching",
+            "ordering",
+            "scientific_explanation",
+            "structured_long",
+            "diagram_interpretation",
+            "data_graph_analysis"
+          ]
+        },
+        "promptAr": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "optionsAr": { "type": "array" },
+        "matchingLeftsAr": { "type": "array" },
+        "matchingRightsShuffledAr": { "type": "array" },
+        "orderingItemsShuffledAr": { "type": "array" },
+        "requiredUnit": { "type": "string", "maxLength": 64 },
+        "diagramKind": { "type": "string", "maxLength": 64 },
+        "diagramCaptionAr": { "type": "string", "maxLength": 400 },
+        "dataTable": { "type": "object" },
+        "conceptAr": { "type": "string", "maxLength": 300 },
+        "marks": { "type": "integer" },
+        "estimatedSeconds": { "type": "integer" },
+        "origin": { "type": "string", "enum": ["OFFICIAL_PAST_EXAM", "TEACHER_RESOURCE", "AI_GENERATED", "ADMIN_CREATED"] },
+        "verificationStatus": { "type": "string", "enum": ["PENDING_REVIEW", "NEEDS_REVIEW", "APPROVED", "REJECTED", "NEEDS_CORRECTION", "OUTDATED"] },
+        "sourceId": { "type": "string", "maxLength": 128 },
+        "sourceRefAr": { "type": "string", "maxLength": 400 },
+        "version": { "type": "integer" },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "unitId", "lessonId", "semester", "difficulty", "questionType", "promptAr", "marks", "verificationStatus", "isPublished"]
+    },
+    "QuestionAnswerKey": {
+      "title": "QuestionAnswerKey",
+      "description": "Server-only private answer keys, marking rubrics, tolerances, and post-submission explanations (Admin SDK access only).",
+      "type": "object",
+      "properties": {
+        "questionId": { "type": "string", "minLength": 2, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "correctAnswer": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "correctAnswers": { "type": "array" },
+        "matchingPairs": { "type": "array" },
+        "orderingItemsAr": { "type": "array" },
+        "rubricAr": { "type": "string", "maxLength": 2000 },
+        "numericTolerance": { "type": "number" },
+        "requiredUnit": { "type": "string", "maxLength": 64 },
+        "explanationAr": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "whyCorrectAr": { "type": "string", "maxLength": 1500 },
+        "solutionStepsAr": { "type": "array" },
+        "commonMistakeAr": { "type": "string", "maxLength": 1000 },
+        "conceptAr": { "type": "string", "maxLength": 300 },
+        "origin": { "type": "string", "enum": ["OFFICIAL_PAST_EXAM", "TEACHER_RESOURCE", "AI_GENERATED", "ADMIN_CREATED"] },
+        "sourceId": { "type": "string", "maxLength": 128 },
+        "sourceRefAr": { "type": "string", "maxLength": 400 },
+        "aiMetadata": { "type": "object" },
+        "scientificValidation": { "type": "object" },
+        "updatedAtIso": { "type": "string", "format": "date-time" }
+      },
+      "required": ["questionId", "correctAnswer", "explanationAr"]
+    },
+    "QuestionReview": {
+      "title": "QuestionReview",
+      "description": "Immutable supervisor audit record for question approval/rejection decisions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "questionId": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "previousStatus": { "type": "string", "enum": ["PENDING_REVIEW", "NEEDS_REVIEW", "APPROVED", "REJECTED", "NEEDS_CORRECTION", "OUTDATED"] },
+        "newStatus": { "type": "string", "enum": ["PENDING_REVIEW", "NEEDS_REVIEW", "APPROVED", "REJECTED", "NEEDS_CORRECTION", "OUTDATED"] },
+        "reviewerAr": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "notesAr": { "type": "string", "maxLength": 1000 },
+        "reviewedAtIso": { "type": "string", "minLength": 10, "maxLength": 64 }
+      },
+      "required": ["id", "questionId", "previousStatus", "newStatus", "reviewerAr", "notesAr", "reviewedAtIso"]
+    },
+    "QuestionVersion": {
+      "title": "QuestionVersion",
+      "description": "Revision snapshot log when an administrator edits a question bank item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "questionId": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "integer" },
+        "editorAr": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "changeSummaryAr": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "snapshotPromptAr": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "snapshotAnswer": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "editedAtIso": { "type": "string", "minLength": 10, "maxLength": 64 }
+      },
+      "required": ["id", "questionId", "version", "editorAr", "changeSummaryAr", "snapshotPromptAr", "snapshotAnswer", "editedAtIso"]
+    },
+    "ExaminationBlueprint": {
+      "title": "ExaminationBlueprint",
+      "description": "Configured Omani Grade 12 examination specification blueprint.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "titleAr": { "type": "string", "minLength": 4, "maxLength": 200 },
+        "examType": { "type": "string", "enum": ["lesson_test", "unit_test", "semester_test", "comprehensive_subject", "mock_final", "custom_practice"] },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "semester": { "type": "integer" },
+        "unitIds": { "type": "array" },
+        "lessonIds": { "type": "array" },
+        "questionCount": { "type": "integer" },
+        "totalMarks": { "type": "integer" },
+        "durationMinutes": { "type": "integer" },
+        "passingScorePercent": { "type": "integer" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["id", "titleAr", "examType", "subjectId", "unitIds", "lessonIds", "questionCount", "totalMarks", "durationMinutes", "passingScorePercent", "isPublished"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private student profile storing identity, track preferences, and academic streak.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "governorate": { "type": "string", "maxLength": 80 },
+        "activeSemester": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "email", "activeSemester", "createdAt", "updatedAt"]
+    },
+    "LessonProgress": {
+      "title": "LessonProgress",
+      "description": "Student mastery, bookmark, and study notes for a specific lesson (bestExamScore server-managed).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "lessonId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["not_started", "in_progress", "completed"] },
+        "bookmarked": { "type": "boolean" },
+        "bestExamScore": { "type": "integer" },
+        "notesAr": { "type": "string", "maxLength": 4000 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "lessonId", "subjectId", "status", "bookmarked", "bestExamScore", "updatedAt"]
+    },
+    "ExamAttempt": {
+      "title": "ExamAttempt",
+      "description": "Server-authoritative immutable record of student exam and practice attempts (written via Admin SDK only).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "lessonId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "mode": { "type": "string", "enum": ["lesson_exam", "question_bank"] },
+        "totalQuestions": { "type": "integer" },
+        "correctCount": { "type": "integer" },
+        "scorePercent": { "type": "integer" },
+        "gradingSource": { "type": "string", "enum": ["server"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "lessonId", "subjectId", "mode", "totalQuestions", "correctCount", "scorePercent", "gradingSource", "createdAt"]
+    },
+    "PracticeLog": {
+      "title": "PracticeLog",
+      "description": "Server-authoritative per-question practice attempt log (written via Admin SDK only).",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "maxLength": 128 },
+        "questionId": { "type": "string", "maxLength": 128 },
+        "lessonId": { "type": "string", "maxLength": 64 },
+        "subjectId": { "type": "string", "maxLength": 64 },
+        "isCorrect": { "type": "boolean" },
+        "needsManualGrading": { "type": "boolean" },
+        "earnedMarks": { "type": "number" },
+        "maxMarks": { "type": "number" },
+        "answeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "questionId", "lessonId", "subjectId", "isCorrect", "earnedMarks", "maxMarks", "answeredAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized curriculum administrator record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/academicYears/{yearId}": {
+      "schema": { "$ref": "#/entities/AcademicYear" },
+      "description": "Academic year catalog."
+    },
+    "/semesters/{semesterId}": {
+      "schema": { "$ref": "#/entities/Semester" },
+      "description": "Academic semester metadata."
+    },
+    "/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Centrally managed Grade 12 Scientific Track subjects."
+    },
+    "/units/{unitId}": {
+      "schema": { "$ref": "#/entities/Unit" },
+      "description": "Curriculum units organized by subject and semester."
+    },
+    "/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/Lesson" },
+      "description": "Preloaded Omani MOE aligned lessons with 6 standardized educational sections."
+    },
+    "/learningObjectives/{objectiveId}": {
+      "schema": { "$ref": "#/entities/LearningObjective" },
+      "description": "Curriculum learning objectives mapped to units and lessons."
+    },
+    "/sources/{sourceId}": {
+      "schema": { "$ref": "#/entities/CurriculumSource" },
+      "description": "Official curriculum source registry with verification status."
+    },
+    "/verificationRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/VerificationRecord" },
+      "description": "Curriculum audit and approval decision log (admin read/write)."
+    },
+    "/questionBank/{questionId}": {
+      "schema": { "$ref": "#/entities/PublicQuestion" },
+      "description": "Public student-safe question prompts & options (answer keys strictly excluded)."
+    },
+    "/questionAnswerKeys/{questionId}": {
+      "schema": { "$ref": "#/entities/QuestionAnswerKey" },
+      "description": "Server-only private answer keys and grading explanations (client read/write denied)."
+    },
+    "/questionReviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/QuestionReview" },
+      "description": "Supervisor review decisions for question bank governance."
+    },
+    "/questionVersions/{versionId}": {
+      "schema": { "$ref": "#/entities/QuestionVersion" },
+      "description": "Question edit version history."
+    },
+    "/examinationBlueprints/{blueprintId}": {
+      "schema": { "$ref": "#/entities/ExaminationBlueprint" },
+      "description": "Published exam specifications."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student profile isolated to the authenticated owner."
+    },
+    "/users/{userId}/progress/{lessonId}": {
+      "schema": { "$ref": "#/entities/LessonProgress" },
+      "description": "Per-lesson student mastery, bookmarks, and notes (bestExamScore server-only)."
+    },
+    "/users/{userId}/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/ExamAttempt" },
+      "description": "Server-created immutable record of student exam attempts."
+    },
+    "/users/{userId}/practiceLogs/{logId}": {
+      "schema": { "$ref": "#/entities/PracticeLog" },
+      "description": "Server-created log of individual student practice checks."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Curriculum administrator registry."
+    }
+  }
+}

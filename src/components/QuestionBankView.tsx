@@ -1,10 +1,21 @@
 import React from 'react';
-import { CheckCircle2, RotateCcw, Search } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  LogIn,
+  Play,
+  RotateCcw,
+  Search,
+  Send,
+  ShieldCheck,
+} from 'lucide-react';
 import type {
-  AssessmentResult,
   DifficultyLevel,
+  ExamStartResponse,
+  ExamSubmitResponse,
+  GradedQuestionResult,
   Lesson,
-  Question,
+  PublicQuestion,
   QuestionFilter,
   QuestionType,
   Semester,
@@ -12,36 +23,70 @@ import type {
   SubjectId,
   Unit,
 } from '../types/curriculum';
-import { filterQuestions, gradeAssessment } from '../utils/curriculumEngine';
+import { filterQuestions } from '../utils/curriculumEngine';
+import { DIFFICULTY_LABELS_AR, QUESTION_TYPE_LABELS_AR } from '../utils/questionEngine';
+import {
+  startExamSessionApi,
+  startPracticeSessionApi,
+  submitExamSessionApi,
+  submitPracticeAnswerApi,
+} from '../services/firestoreService';
+import { QuestionRenderer } from './QuestionRenderer';
+import { ExamResultsView } from './ExamResultsView';
 
 interface QuestionBankViewProps {
   subjects: Subject[];
   units: Unit[];
   lessons: Lesson[];
-  questions: Question[];
-  onRecordBankAttempt: (subjectId: SubjectId, result: AssessmentResult) => Promise<void>;
+  questions: PublicQuestion[];
+  isAuthenticated: boolean;
+  onSignIn: () => void;
+  onServerAttemptRecorded: (response: ExamSubmitResponse) => void;
 }
 
-const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
-  foundation: 'تأسيسي',
-  intermediate: 'متوسط',
-  advanced: 'متقدم',
-  olympiad: 'قدرات عليا',
-};
+type BankMode = 'practice' | 'exam';
 
-const TYPE_LABELS: Record<QuestionType, string> = {
-  mcq: 'اختيار من متعدد',
-  numeric: 'مسألة رقمية',
-  short_answer: 'إجابة قصيرة',
-};
+const PAGE_SIZE = 10;
+
+const DIFFICULTY_OPTIONS: DifficultyLevel[] = [
+  'foundation',
+  'basic_application',
+  'intermediate',
+  'advanced',
+  'olympiad',
+];
+
+const QUESTION_TYPE_OPTIONS: QuestionType[] = [
+  'mcq',
+  'multi_select',
+  'true_false',
+  'fill_blank',
+  'short_answer',
+  'numeric',
+  'matching',
+  'ordering',
+  'scientific_explanation',
+  'structured_long',
+  'diagram_interpretation',
+  'data_graph_analysis',
+];
+
+function formatTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export function QuestionBankView({
   subjects,
   units,
   lessons,
   questions,
-  onRecordBankAttempt,
+  isAuthenticated,
+  onSignIn,
+  onServerAttemptRecorded,
 }: QuestionBankViewProps) {
+  const [mode, setMode] = React.useState<BankMode>('practice');
   const [filter, setFilter] = React.useState<QuestionFilter>({
     subjectId: 'all',
     unitId: 'all',
@@ -51,8 +96,25 @@ export function QuestionBankView({
     questionType: 'all',
     searchQuery: '',
   });
-  const [answers, setAnswers] = React.useState<Record<string, string>>({});
-  const [result, setResult] = React.useState<AssessmentResult | null>(null);
+  const [page, setPage] = React.useState(1);
+
+  // Practice mode state
+  const [practiceSessionId, setPracticeSessionId] = React.useState<string | undefined>(undefined);
+  const [practiceAnswers, setPracticeAnswers] = React.useState<Record<string, string>>({});
+  const [practiceGraded, setPracticeGraded] = React.useState<
+    Record<string, GradedQuestionResult>
+  >({});
+  const [checkingId, setCheckingId] = React.useState<string | null>(null);
+  const [practiceNotice, setPracticeNotice] = React.useState<string | null>(null);
+
+  // Timed exam mode state
+  const [examSession, setExamSession] = React.useState<ExamStartResponse | null>(null);
+  const [examAnswers, setExamAnswers] = React.useState<Record<string, string>>({});
+  const [examResultResponse, setExamResultResponse] =
+    React.useState<ExamSubmitResponse | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = React.useState<number>(0);
+  const [examBusy, setExamBusy] = React.useState(false);
+  const [examError, setExamError] = React.useState<string | null>(null);
 
   const filteredUnits = React.useMemo(() => {
     if (!filter.subjectId || filter.subjectId === 'all') return units;
@@ -76,17 +138,47 @@ export function QuestionBankView({
     [questions, filter]
   );
 
-  const handleGradeAll = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (matchingQuestions.length === 0) return;
-    const graded = gradeAssessment(matchingQuestions, answers);
-    setResult(graded);
-    const primarySubject =
-      filter.subjectId && filter.subjectId !== 'all'
-        ? filter.subjectId
-        : matchingQuestions[0].subjectId;
-    await onRecordBankAttempt(primarySubject, graded);
-  };
+  const totalPages = Math.max(1, Math.ceil(matchingQuestions.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedQuestions = React.useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return matchingQuestions.slice(start, start + PAGE_SIZE);
+  }, [matchingQuestions, safePage]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [
+    filter.subjectId,
+    filter.unitId,
+    filter.lessonId,
+    filter.semester,
+    filter.difficulty,
+    filter.questionType,
+    filter.searchQuery,
+  ]);
+
+  // Countdown timer for active exam session
+  React.useEffect(() => {
+    if (!examSession || examResultResponse) return;
+    if (secondsRemaining <= 0) return;
+    const id = window.setInterval(() => {
+      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [examSession, examResultResponse, secondsRemaining]);
+
+  // Persist exam draft answers locally while exam is running
+  React.useEffect(() => {
+    if (!examSession || examResultResponse) return;
+    try {
+      window.localStorage.setItem(
+        `studycore_exam_draft_${examSession.sessionId}`,
+        JSON.stringify(examAnswers)
+      );
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [examSession, examAnswers, examResultResponse]);
 
   const resetFilters = () => {
     setFilter({
@@ -98,28 +190,193 @@ export function QuestionBankView({
       questionType: 'all',
       searchQuery: '',
     });
-    setAnswers({});
-    setResult(null);
+    setPage(1);
+  };
+
+  const handleCheckSinglePractice = async (q: PublicQuestion) => {
+    if (!isAuthenticated) {
+      setPracticeNotice('سجّل دخولك أولاً للتحقق من الإجابة على الخادم وحفظ سجل تدريبك.');
+      return;
+    }
+
+    const answer = practiceAnswers[q.id] ?? '';
+    if (!answer.trim()) {
+      setPracticeNotice('أدخل إجابتك أولاً قبل الضغط على التحقق.');
+      return;
+    }
+
+    setPracticeNotice(null);
+    setCheckingId(q.id);
+    try {
+      let sid = practiceSessionId;
+      if (!sid) {
+        const started = await startPracticeSessionApi({
+          subjectId: filter.subjectId ?? 'all',
+          unitId: filter.unitId ?? 'all',
+          lessonId: filter.lessonId ?? 'all',
+          semester: filter.semester ?? 'all',
+          difficulty: filter.difficulty ?? 'all',
+          questionType: filter.questionType ?? 'all',
+          limit: 20,
+        });
+        sid = started.sessionId;
+        setPracticeSessionId(sid);
+      }
+
+      const graded = await submitPracticeAnswerApi({
+        sessionId: sid,
+        questionId: q.id,
+        answer,
+      });
+
+      setPracticeGraded((prev) => ({
+        ...prev,
+        [q.id]: {
+          questionId: q.id,
+          questionType: q.questionType,
+          difficulty: q.difficulty,
+          learningObjectiveId: q.learningObjectiveId,
+          isCorrect: graded.isCorrect,
+          needsManualGrading: graded.needsManualGrading,
+          userAnswer: answer,
+          correctAnswer: graded.correctAnswer,
+          earnedMarks: graded.earnedMarks,
+          maxMarks: graded.maxMarks,
+          explanationAr: graded.explanationAr,
+          whyCorrectAr: graded.whyCorrectAr,
+          solutionStepsAr: graded.solutionStepsAr,
+          commonMistakeAr: graded.commonMistakeAr,
+          rubricAr: graded.rubricAr,
+        },
+      }));
+    } catch (err) {
+      setPracticeNotice(
+        err instanceof Error ? err.message : 'تعذر تصحيح السؤال على الخادم حالياً.'
+      );
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const handleStartTimedExam = async () => {
+    if (!isAuthenticated) {
+      setExamError('يرجى تسجيل الدخول لبدء اختبار مؤقت ومصحح على الخادم.');
+      return;
+    }
+    setExamError(null);
+    setExamBusy(true);
+    try {
+      const subjectLabel =
+        filter.subjectId && filter.subjectId !== 'all'
+          ? subjects.find((s) => s.id === filter.subjectId)?.titleAr ?? 'بنك الأسئلة'
+          : 'بنك الأسئلة الشامل';
+      const started = await startExamSessionApi({
+        mode: 'question_bank',
+        titleAr: `اختبار تدريبي من ${subjectLabel}`,
+        subjectId: filter.subjectId ?? 'all',
+        unitIds: filter.unitId && filter.unitId !== 'all' ? [filter.unitId] : [],
+        lessonIds: filter.lessonId && filter.lessonId !== 'all' ? [filter.lessonId] : [],
+        semester: filter.semester ?? 'all',
+        difficulty: filter.difficulty ?? 'all',
+        questionType: filter.questionType ?? 'all',
+        questionCount: Math.min(15, Math.max(1, matchingQuestions.length)),
+        durationMinutes: Math.max(10, Math.min(45, matchingQuestions.length * 2)),
+        passingScorePercent: 60,
+        randomizeOrder: true,
+      });
+      setExamSession(started);
+      setExamAnswers({});
+      setExamResultResponse(null);
+      setSecondsRemaining(started.durationSeconds);
+    } catch (err) {
+      setExamError(
+        err instanceof Error ? err.message : 'تعذر بدء جلسة الاختبار على الخادم.'
+      );
+    } finally {
+      setExamBusy(false);
+    }
+  };
+
+  const handleSubmitTimedExam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!examSession) return;
+    setExamError(null);
+    setExamBusy(true);
+    try {
+      const response = await submitExamSessionApi({
+        sessionId: examSession.sessionId,
+        answers: examAnswers,
+      });
+      setExamResultResponse(response);
+      onServerAttemptRecorded(response);
+      try {
+        window.localStorage.removeItem(`studycore_exam_draft_${examSession.sessionId}`);
+      } catch {
+        // Ignore storage cleanup error
+      }
+    } catch (err) {
+      setExamError(
+        err instanceof Error ? err.message : 'تعذر تسليم الاختبار على الخادم.'
+      );
+    } finally {
+      setExamBusy(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white">
-              بنك الأسئلة المركزي
+              بنك الأسئلة المركزي المعتمد
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              مجموعة أسئلة مصنفة حسب المادة والوحدة والدرس ومستوى الصعوبة ونوع السؤال وفق منهج
-              سلطنة عُمان.
+              الأسئلة المعتمدة للطلبة فقط عبر المستويات الخمسة وجميع الأنماط الـ ١٢، مع تصحيح
+              آمن على الخادم.
             </p>
           </div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
-            <span>النتائج المطابقة: </span>
-            <span className="font-mono">{matchingQuestions.length}</span>
-            <span> من </span>
-            <span className="font-mono">{questions.length}</span>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="tablist"
+              aria-label="وضع بنك الأسئلة"
+              className="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'practice'}
+                onClick={() => setMode('practice')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  mode === 'practice'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                تدريب فوري (سؤال بسؤال)
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'exam'}
+                onClick={() => setMode('exam')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  mode === 'exam'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                اختبار مؤقت ومعتمد
+              </button>
+            </div>
+
+            <div className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
+              <span>المطابقة: </span>
+              <span className="font-mono">{matchingQuestions.length}</span>
+              <span> / </span>
+              <span className="font-mono">{questions.length}</span>
+            </div>
           </div>
         </div>
 
@@ -236,7 +493,7 @@ export function QuestionBankView({
               htmlFor="qb-difficulty"
               className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
             >
-              مستوى الصعوبة
+              مستوى الصعوبة (٥ مستويات)
             </label>
             <select
               id="qb-difficulty"
@@ -249,11 +506,12 @@ export function QuestionBankView({
               }
               className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100"
             >
-              <option value="all">كل المستويات</option>
-              <option value="foundation">تأسيسي</option>
-              <option value="intermediate">متوسط</option>
-              <option value="advanced">متقدم</option>
-              <option value="olympiad">قدرات عليا</option>
+              <option value="all">كل المستويات (٥)</option>
+              {DIFFICULTY_OPTIONS.map((diff) => (
+                <option key={diff} value={diff}>
+                  {DIFFICULTY_LABELS_AR[diff]}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -262,7 +520,7 @@ export function QuestionBankView({
               htmlFor="qb-type"
               className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
             >
-              نوع السؤال
+              نوع السؤال (١٢ نمطاً)
             </label>
             <select
               id="qb-type"
@@ -275,15 +533,17 @@ export function QuestionBankView({
               }
               className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100"
             >
-              <option value="all">كل الأنواع</option>
-              <option value="mcq">اختيار من متعدد</option>
-              <option value="numeric">مسألة رقمية</option>
-              <option value="short_answer">إجابة قصيرة</option>
+              <option value="all">كل الأنواع (١٢)</option>
+              {QUESTION_TYPE_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {QUESTION_TYPE_LABELS_AR[t]}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
             <input
@@ -306,145 +566,249 @@ export function QuestionBankView({
             <span>إعادة ضبط التصفية</span>
           </button>
         </div>
+
+        {!isAuthenticated && (
+          <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/30 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs text-sky-950 dark:text-sky-200">
+              يتم تصحيح الأسئلة والاختبارات على الخادم لحفظ الإجابات النموذجية. سجّل دخولك بحساب
+              جوجل لتفعيل التصحيح الفوري وحفظ نتائجك.
+            </p>
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>تسجيل الدخول</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {result && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-white">
-                تم تصحيح مجموعة التدريب وحفظ المحاولة
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                الإجابات الصحيحة: {result.correctCount} من {result.totalQuestions} · الدرجات:{' '}
-                {result.earnedMarks} / {result.totalMarks}
-              </p>
+      {/* Mode A: Practice Mode */}
+      {mode === 'practice' && (
+        <>
+          {practiceNotice && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3.5 text-xs text-amber-950 dark:text-amber-200"
+            >
+              {practiceNotice}
             </div>
-          </div>
-          <div className="font-mono text-2xl font-extrabold text-sky-800 dark:text-sky-400 tabular-nums">
-            {result.scorePercent}%
-          </div>
-        </div>
+          )}
+
+          {matchingQuestions.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center space-y-3">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                لا توجد أسئلة معتمدة مطابقة لمعايير البحث الحالية.
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 cursor-pointer"
+              >
+                عرض جميع الأسئلة المعتمدة
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedQuestions.map((q, idx) => {
+                const subj = subjects.find((s) => s.id === q.subjectId);
+                const globalIndex = (safePage - 1) * PAGE_SIZE + idx;
+                const graded = practiceGraded[q.id];
+                return (
+                  <div key={q.id} className="space-y-2">
+                    <QuestionRenderer
+                      question={q}
+                      index={globalIndex}
+                      subjectTitleAr={subj?.titleAr}
+                      answer={practiceAnswers[q.id] ?? ''}
+                      onChangeAnswer={(val) =>
+                        setPracticeAnswers((prev) => ({ ...prev, [q.id]: val }))
+                      }
+                      gradedResult={graded}
+                      fieldPrefix="prac"
+                    />
+                    <div className="flex items-center justify-end gap-2 px-1">
+                      <button
+                        type="button"
+                        disabled={checkingId === q.id}
+                        onClick={() => void handleCheckSinglePractice(q)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>
+                          {checkingId === q.id ? 'جاري التصحيح...' : 'تحقق من الإجابة'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-xs">
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="px-3.5 py-1.5 font-semibold rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-40 cursor-pointer"
+                  >
+                    الصفحة السابقة
+                  </button>
+                  <span className="font-mono tabular-nums text-slate-600 dark:text-slate-300">
+                    صفحة {safePage} من {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="px-3.5 py-1.5 font-semibold rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-40 cursor-pointer"
+                  >
+                    الصفحة التالية
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {matchingQuestions.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center space-y-3">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            لا توجد أسئلة مطابقة لمعايير البحث الحالية.
-          </p>
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 cursor-pointer"
-          >
-            عرض جميع الأسئلة
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={(e) => void handleGradeAll(e)} className="space-y-4">
-          {matchingQuestions.map((q, index) => {
-            const subj = subjects.find((s) => s.id === q.subjectId);
-            const graded = result?.breakdown.find((b) => b.questionId === q.id);
+      {/* Mode B: Timed Server-Verified Exam Mode */}
+      {mode === 'exam' && (
+        <div className="space-y-5">
+          {!examSession ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-8 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-sky-800 dark:text-sky-400">
+                <ShieldCheck className="w-4 h-4" />
+                <span>جلسة اختبار محمية ومصححة على الخادم</span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
+                توليد اختبار مؤقت من الأسئلة المطابقة ({Math.min(15, matchingQuestions.length)}{' '}
+                أسئلة)
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+                عند بدء الاختبار، يُنشئ الخادم جلسة موثقة بوقت محدد ولا تظهر الإجابات النموذجية أو
+                الشروحات إلا بعد التسليم النهائي.
+              </p>
 
-            return (
-              <div
-                key={q.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
-                      #{index + 1}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span>{subj?.titleAr ?? q.subjectId}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{DIFFICULTY_LABELS[q.difficulty]}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{TYPE_LABELS[q.questionType]}</span>
-                  </div>
-                  <span className="font-mono tabular-nums">{q.marks} درجات</span>
+              {examError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 p-3 text-xs text-rose-900 dark:text-rose-200"
+                >
+                  {examError}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={examBusy || matchingQuestions.length === 0 || !isAuthenticated}
+                  onClick={() => void handleStartTimedExam()}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Play className="w-4 h-4" />
+                  <span>{examBusy ? 'جاري تجهيز الجلسة...' : 'بدء الاختبار الآن'}</span>
+                </button>
+                {!isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={onSignIn}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>سجّل دخولك لبدء الاختبار</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Active Exam Header Bar */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                    {examSession.titleAr}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                    عدد الأسئلة: {examSession.questions.length} · درجة النجاح:{' '}
+                    {examSession.passingScorePercent}%
+                  </p>
                 </div>
 
-                <p className="text-base font-semibold text-slate-900 dark:text-white leading-relaxed">
-                  {q.promptAr}
-                </p>
-
-                {q.questionType === 'mcq' && q.optionsAr ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {q.optionsAr.map((opt) => {
-                      const selected = answers[q.id] === opt;
-                      return (
-                        <label
-                          key={opt}
-                          className={`flex items-center gap-3 p-3 rounded-lg border text-sm cursor-pointer transition-colors ${
-                            selected
-                              ? 'border-sky-700 bg-sky-50 text-sky-950 dark:bg-sky-950/50 dark:border-sky-500 dark:text-sky-100'
-                              : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`qb-${q.id}`}
-                            value={opt}
-                            checked={selected}
-                            onChange={() =>
-                              setAnswers((prev) => ({ ...prev, [q.id]: opt }))
-                            }
-                            className="accent-sky-800"
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="text"
-                      aria-label={`إجابة السؤال ${index + 1}`}
-                      value={answers[q.id] ?? ''}
-                      onChange={(e) =>
-                        setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                      }
-                      placeholder="اكتب الإجابة النهائية..."
-                      className="w-full sm:w-72 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-sm font-mono text-slate-900 dark:text-white"
-                    />
-                  </div>
-                )}
-
-                {graded && (
-                  <div
-                    className={`rounded-lg p-3.5 border text-sm space-y-1 ${
-                      graded.isCorrect
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-200'
-                        : 'bg-rose-50 border-rose-200 text-rose-950 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-200'
-                    }`}
-                  >
-                    <p className="font-bold">
-                      {graded.isCorrect
-                        ? 'إجابة صحيحة'
-                        : `إجابة غير صحيحة — الإجابة الصحيحة: ${graded.correctAnswer}`}
-                    </p>
-                    <p className="text-xs leading-relaxed opacity-90">
-                      {graded.explanationAr}
-                    </p>
+                {!examResultResponse && (
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2 font-mono text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                    <Clock className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+                    <span>{formatTimer(secondsRemaining)}</span>
                   </div>
                 )}
               </div>
-            );
-          })}
 
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 cursor-pointer"
-            >
-              تصحيح جميع الأسئلة المعروضة
-            </button>
-          </div>
-        </form>
+              {examError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 p-3 text-xs text-rose-900 dark:text-rose-200"
+                >
+                  {examError}
+                </div>
+              )}
+
+              {examResultResponse && (
+                <ExamResultsView
+                  titleAr={examSession.titleAr}
+                  result={examResultResponse.result}
+                  persistedToFirestore={examResultResponse.persistedToFirestore}
+                  persistenceNoticeAr={examResultResponse.persistenceNoticeAr}
+                  onRetry={() => {
+                    setExamSession(null);
+                    setExamResultResponse(null);
+                    setExamAnswers({});
+                  }}
+                />
+              )}
+
+              <form onSubmit={(e) => void handleSubmitTimedExam(e)} className="space-y-4">
+                {examSession.questions.map((q, idx) => {
+                  const subj = subjects.find((s) => s.id === q.subjectId);
+                  const graded = examResultResponse?.result.breakdown.find(
+                    (b) => b.questionId === q.id
+                  );
+                  return (
+                    <QuestionRenderer
+                      key={q.id}
+                      question={q}
+                      index={idx}
+                      subjectTitleAr={subj?.titleAr}
+                      answer={examAnswers[q.id] ?? ''}
+                      onChangeAnswer={(val) =>
+                        setExamAnswers((prev) => ({ ...prev, [q.id]: val }))
+                      }
+                      disabled={Boolean(examResultResponse)}
+                      gradedResult={graded}
+                      fieldPrefix="qb-exam"
+                    />
+                  );
+                })}
+
+                {!examResultResponse && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={examBusy}
+                      className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>
+                        {examBusy ? 'جاري التصحيح على الخادم...' : 'تسليم وتصحيح الاختبار'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

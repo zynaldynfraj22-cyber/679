@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Clock, FileText } from '
 import type {
   Lesson,
   LessonProgress,
-  Question,
+  PublicQuestion,
   Semester,
   Subject,
   SubjectId,
@@ -15,7 +15,7 @@ interface SubjectExplorerProps {
   subjects: Subject[];
   units: Unit[];
   lessons: Lesson[];
-  questions: Question[];
+  questions: PublicQuestion[];
   selectedSubjectId: SubjectId;
   onSelectSubject: (id: SubjectId) => void;
   activeSemester: Semester | 'all';

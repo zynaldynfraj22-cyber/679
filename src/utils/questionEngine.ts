@@ -1,25 +1,31 @@
 import type {
-  AssessmentResult,
-  BreakdownStat,
+  CurriculumSource,
   DifficultyLevel,
   DifficultyTier,
   DuplicateMatch,
   ExaminationBlueprint,
   ExamBlueprintType,
-  GradedQuestionResult,
   LearningObjective,
   Lesson,
   LessonCoverageTarget,
+  PublicQuestion,
   Question,
+  QuestionAnswerKey,
+  QuestionBankAuditReport,
   QuestionFilter,
+  QuestionLinkIssue,
+  QuestionObjectiveIssue,
   QuestionOrigin,
+  QuestionSourceIssue,
   QuestionType,
+  QuestionTypePayloadIssue,
   QuestionVerificationState,
   RevisionRecommendation,
   ScientificValidationReport,
   StudentAnswerDetail,
   Subject,
   SubjectId,
+  Unit,
 } from '../types/curriculum';
 
 export const DIFFICULTY_TIER_MAP: Record<DifficultyLevel, DifficultyTier> = {
@@ -62,6 +68,7 @@ export const ORIGIN_LABELS_AR: Record<QuestionOrigin, string> = {
 
 export const VERIFICATION_STATE_LABELS_AR: Record<QuestionVerificationState, string> = {
   PENDING_REVIEW: 'بانتظار المراجعة',
+  NEEDS_REVIEW: 'يحتاج مراجعة وتوثيق',
   APPROVED: 'معتمد للطلبة',
   REJECTED: 'مرفوض',
   NEEDS_CORRECTION: 'بحاجة لتصحيح',
@@ -105,12 +112,46 @@ export function normalizeTextToken(raw: string): string {
   return replaced.replace(/\s+/g, ' ').toLowerCase();
 }
 
+function deterministicSeedFromId(id: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash);
+}
+
+export function deriveDefaultQuestionTitle(q: Pick<Question, 'titleAr' | 'conceptAr' | 'promptAr'>): string {
+  if (q.titleAr && q.titleAr.trim().length >= 3) {
+    return q.titleAr.trim();
+  }
+  if (q.conceptAr && q.conceptAr.trim().length >= 3) {
+    return q.conceptAr.trim();
+  }
+  const clean = (q.promptAr ?? '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= 72) return clean;
+  return `${clean.slice(0, 69).trim()}...`;
+}
+
 export function normalizeQuestionDefaults(q: Question): Question {
-  const origin: QuestionOrigin = q.origin ?? 'ADMIN_CREATED';
-  const verificationStatus: QuestionVerificationState =
-    q.verificationStatus ?? (q.isPublished ? 'APPROVED' : 'PENDING_REVIEW');
+  const origin: QuestionOrigin =
+    q.origin ?? (q.aiMetadata ? 'AI_GENERATED' : 'ADMIN_CREATED');
+
+  // Strict Phase 3.5/4A rule:
+  // - AI-generated questions without explicit status default to PENDING_REVIEW
+  // - Legacy questions without explicit verification evidence default to NEEDS_REVIEW (never auto-APPROVED!)
+  let verificationStatus: QuestionVerificationState;
+  if (q.verificationStatus) {
+    verificationStatus = q.verificationStatus;
+  } else if (origin === 'AI_GENERATED') {
+    verificationStatus = 'PENDING_REVIEW';
+  } else {
+    verificationStatus = 'NEEDS_REVIEW';
+  }
+
   return {
     ...q,
+    titleAr: deriveDefaultQuestionTitle(q),
     academicYearId: q.academicYearId ?? '2026-2027',
     gradeAr: q.gradeAr ?? 'الصف الثاني عشر',
     trackAr: q.trackAr ?? 'المسار العلمي',
@@ -124,84 +165,187 @@ export function normalizeQuestionDefaults(q: Question): Question {
         : 90),
     origin,
     verificationStatus,
+    createdAtIso: q.createdAtIso ?? '2026-10-01T00:00:00.000Z',
+    lastReviewedAtIso: q.lastReviewedAtIso,
     version: q.version ?? 1,
-    createdAtIso: q.createdAtIso ?? '2026-09-01T08:00:00.000Z',
-    lastReviewedAtIso:
-      q.lastReviewedAtIso ?? (verificationStatus === 'APPROVED' ? '2026-10-15T08:00:00.000Z' : undefined),
   };
 }
 
 /**
- * Only APPROVED and published questions may be delivered to students.
- * Rejected, Pending Review, Needs Correction, and Outdated items are strictly excluded.
+ * Only explicitly APPROVED and published questions may be delivered to students.
+ * NEEDS_REVIEW, PENDING_REVIEW, REJECTED, NEEDS_CORRECTION, and OUTDATED items are excluded.
  */
-export function isQuestionDeliverableToStudent(q: Question): boolean {
-  const normalized = normalizeQuestionDefaults(q);
-  if (!normalized.isPublished) return false;
-  return normalized.verificationStatus === 'APPROVED';
+export function isQuestionDeliverableToStudent(q: {
+  isPublished?: boolean;
+  verificationStatus?: QuestionVerificationState;
+}): boolean {
+  if (!q.isPublished) return false;
+  return q.verificationStatus === 'APPROVED';
 }
 
-export function filterBankQuestions(
-  questions: Question[],
+export function toPublicQuestion(raw: Question): PublicQuestion {
+  const q = normalizeQuestionDefaults(raw);
+  const seed = deterministicSeedFromId(q.id);
+
+  const matchingLeftsAr =
+    q.matchingPairs && q.matchingPairs.length > 0
+      ? q.matchingPairs.map((p) => p.leftAr)
+      : undefined;
+
+  let matchingRightsShuffledAr: string[] | undefined;
+  if (q.matchingPairs && q.matchingPairs.length > 0) {
+    matchingRightsShuffledAr = shuffleQuestions(
+      q.matchingPairs.map((p) => p.rightAr),
+      seed
+    );
+    // Avoid accidentally matching original index order when > 1 item
+    if (
+      matchingRightsShuffledAr.length > 1 &&
+      matchingRightsShuffledAr.every((val, idx) => val === q.matchingPairs![idx].rightAr)
+    ) {
+      matchingRightsShuffledAr = [
+        ...matchingRightsShuffledAr.slice(1),
+        matchingRightsShuffledAr[0],
+      ];
+    }
+  }
+
+  let orderingItemsShuffledAr: string[] | undefined;
+  if (q.orderingItemsAr && q.orderingItemsAr.length > 0) {
+    orderingItemsShuffledAr = shuffleQuestions(q.orderingItemsAr, seed + 17);
+    if (
+      orderingItemsShuffledAr.length > 1 &&
+      orderingItemsShuffledAr.every((val, idx) => val === q.orderingItemsAr![idx])
+    ) {
+      orderingItemsShuffledAr = [
+        ...orderingItemsShuffledAr.slice(1),
+        orderingItemsShuffledAr[0],
+      ];
+    }
+  }
+
+  const pub: PublicQuestion = {
+    id: q.id,
+    titleAr: q.titleAr,
+    academicYearId: q.academicYearId,
+    gradeAr: q.gradeAr,
+    trackAr: q.trackAr,
+    subjectId: q.subjectId,
+    unitId: q.unitId,
+    lessonId: q.lessonId,
+    learningObjectiveId: q.learningObjectiveId,
+    semester: q.semester,
+    difficulty: q.difficulty,
+    difficultyLevel: q.difficultyLevel,
+    questionType: q.questionType,
+    promptAr: q.promptAr,
+    optionsAr: q.optionsAr,
+    matchingLeftsAr,
+    matchingRightsShuffledAr,
+    orderingItemsShuffledAr,
+    requiredUnit: q.requiredUnit,
+    diagramKind: q.diagramKind,
+    diagramCaptionAr: q.diagramCaptionAr,
+    dataTable: q.dataTable,
+    conceptAr: q.conceptAr,
+    marks: q.marks,
+    estimatedSeconds: q.estimatedSeconds,
+    origin: q.origin,
+    verificationStatus: q.verificationStatus,
+    sourceId: q.sourceId,
+    sourceRefAr: q.sourceRefAr,
+    createdAtIso: q.createdAtIso,
+    lastReviewedAtIso: q.lastReviewedAtIso,
+    version: q.version,
+    isPublished: q.isPublished,
+  };
+  return pub;
+}
+
+export function toPrivateAnswerKey(raw: Question): QuestionAnswerKey {
+  const q = normalizeQuestionDefaults(raw);
+  return {
+    questionId: q.id,
+    correctAnswer: q.correctAnswer,
+    correctAnswers: q.correctAnswers,
+    matchingPairs: q.matchingPairs,
+    orderingItemsAr: q.orderingItemsAr,
+    rubricAr: q.rubricAr,
+    numericTolerance: q.numericTolerance,
+    requiredUnit: q.requiredUnit,
+    explanationAr: q.explanationAr,
+    whyCorrectAr: q.whyCorrectAr,
+    solutionStepsAr: q.solutionStepsAr,
+    commonMistakeAr: q.commonMistakeAr,
+    conceptAr: q.conceptAr,
+    origin: q.origin,
+    sourceId: q.sourceId,
+    sourceRefAr: q.sourceRefAr,
+    aiMetadata: q.aiMetadata,
+    scientificValidation: q.scientificValidation,
+    updatedAtIso: q.lastReviewedAtIso ?? q.createdAtIso,
+  };
+}
+
+export function filterBankQuestions<T extends PublicQuestion>(
+  questions: T[],
   filter: QuestionFilter
-): Question[] {
+): T[] {
   const query = filter.searchQuery?.trim().toLowerCase() ?? '';
   const savedSet = filter.onlySavedIds ? new Set(filter.onlySavedIds) : null;
   const incorrectSet = filter.onlyIncorrectIds ? new Set(filter.onlyIncorrectIds) : null;
 
-  return questions
-    .map(normalizeQuestionDefaults)
-    .filter((q) => {
-      if (!filter.includeUnapproved && !isQuestionDeliverableToStudent(q)) {
-        return false;
-      }
-      if (filter.subjectId && filter.subjectId !== 'all' && q.subjectId !== filter.subjectId) {
-        return false;
-      }
-      if (filter.unitId && filter.unitId !== 'all' && q.unitId !== filter.unitId) {
-        return false;
-      }
-      if (filter.lessonId && filter.lessonId !== 'all' && q.lessonId !== filter.lessonId) {
-        return false;
-      }
-      if (
-        filter.learningObjectiveId &&
-        filter.learningObjectiveId !== 'all' &&
-        q.learningObjectiveId !== filter.learningObjectiveId
-      ) {
-        return false;
-      }
-      if (filter.semester && filter.semester !== 'all' && q.semester !== filter.semester) {
-        return false;
-      }
-      if (filter.difficulty && filter.difficulty !== 'all' && q.difficulty !== filter.difficulty) {
-        return false;
-      }
-      if (filter.questionType && filter.questionType !== 'all' && q.questionType !== filter.questionType) {
-        return false;
-      }
-      if (filter.origin && filter.origin !== 'all' && q.origin !== filter.origin) {
-        return false;
-      }
-      if (
-        filter.verificationStatus &&
-        filter.verificationStatus !== 'all' &&
-        q.verificationStatus !== filter.verificationStatus
-      ) {
-        return false;
-      }
-      if (savedSet && !savedSet.has(q.id)) {
-        return false;
-      }
-      if (incorrectSet && !incorrectSet.has(q.id)) {
-        return false;
-      }
-      if (query.length > 0) {
-        const hay = `${q.promptAr} ${q.explanationAr} ${q.conceptAr ?? ''} ${q.sourceRefAr ?? ''}`.toLowerCase();
-        if (!hay.includes(query)) return false;
-      }
-      return true;
-    });
+  return questions.filter((q) => {
+    if (!filter.includeUnapproved && !isQuestionDeliverableToStudent(q)) {
+      return false;
+    }
+    if (filter.subjectId && filter.subjectId !== 'all' && q.subjectId !== filter.subjectId) {
+      return false;
+    }
+    if (filter.unitId && filter.unitId !== 'all' && q.unitId !== filter.unitId) {
+      return false;
+    }
+    if (filter.lessonId && filter.lessonId !== 'all' && q.lessonId !== filter.lessonId) {
+      return false;
+    }
+    if (
+      filter.learningObjectiveId &&
+      filter.learningObjectiveId !== 'all' &&
+      q.learningObjectiveId !== filter.learningObjectiveId
+    ) {
+      return false;
+    }
+    if (filter.semester && filter.semester !== 'all' && q.semester !== filter.semester) {
+      return false;
+    }
+    if (filter.difficulty && filter.difficulty !== 'all' && q.difficulty !== filter.difficulty) {
+      return false;
+    }
+    if (filter.questionType && filter.questionType !== 'all' && q.questionType !== filter.questionType) {
+      return false;
+    }
+    if (filter.origin && filter.origin !== 'all' && q.origin !== filter.origin) {
+      return false;
+    }
+    if (
+      filter.verificationStatus &&
+      filter.verificationStatus !== 'all' &&
+      q.verificationStatus !== filter.verificationStatus
+    ) {
+      return false;
+    }
+    if (savedSet && !savedSet.has(q.id)) {
+      return false;
+    }
+    if (incorrectSet && !incorrectSet.has(q.id)) {
+      return false;
+    }
+    if (query.length > 0) {
+      const hay = `${q.promptAr} ${q.conceptAr ?? ''} ${q.sourceRefAr ?? ''}`.toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
+    return true;
+  });
 }
 
 export interface PaginatedResult<T> {
@@ -277,313 +421,8 @@ export function parseNumericOrMathValue(raw: string): { value: number | null; un
   return { value: null, unit: '' };
 }
 
-function normalizeUnit(unit: string): string {
-  return unit
-    .replace(/\s+/g, '')
-    .replace(/²/g, '^2')
-    .replace(/³/g, '^3')
-    .replace(/·/g, '.')
-    .replace(/μ/g, 'u')
-    .replace(/µ/g, 'u')
-    .toLowerCase();
-}
-
 export function isManualGradingType(type: QuestionType): boolean {
   return type === 'scientific_explanation' || type === 'structured_long';
-}
-
-export interface SingleGradeOutcome {
-  isCorrect: boolean;
-  needsManualGrading: boolean;
-  earnedMarks: number;
-}
-
-export function gradeSingleBankQuestion(
-  question: Question,
-  rawAnswer: string
-): SingleGradeOutcome {
-  const maxMarks = question.marks || 1;
-  const trimmed = rawAnswer?.trim() ?? '';
-  if (!trimmed) {
-    return { isCorrect: false, needsManualGrading: false, earnedMarks: 0 };
-  }
-
-  if (isManualGradingType(question.questionType)) {
-    // Long structured / scientific explanation questions enter manual/rubric workflow
-    return { isCorrect: false, needsManualGrading: true, earnedMarks: 0 };
-  }
-
-  if (question.questionType === 'multi_select') {
-    const expectedList = (
-      question.correctAnswers && question.correctAnswers.length > 0
-        ? question.correctAnswers
-        : question.correctAnswer.split('|')
-    )
-      .map(normalizeTextToken)
-      .filter(Boolean)
-      .sort();
-
-    let userList: string[] = [];
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        userList = parsed.map((x) => normalizeTextToken(String(x))).filter(Boolean).sort();
-      }
-    } catch {
-      userList = trimmed.split('|').map(normalizeTextToken).filter(Boolean).sort();
-    }
-
-    const match =
-      expectedList.length > 0 &&
-      expectedList.length === userList.length &&
-      expectedList.every((val, idx) => val === userList[idx]);
-    return { isCorrect: match, needsManualGrading: false, earnedMarks: match ? maxMarks : 0 };
-  }
-
-  if (question.questionType === 'matching') {
-    const pairs = question.matchingPairs ?? [];
-    if (pairs.length === 0) {
-      const eq = normalizeTextToken(trimmed) === normalizeTextToken(question.correctAnswer);
-      return { isCorrect: eq, needsManualGrading: false, earnedMarks: eq ? maxMarks : 0 };
-    }
-    try {
-      const userMap = JSON.parse(trimmed) as Record<string, string>;
-      let matched = 0;
-      for (const pair of pairs) {
-        const expectedRight = normalizeTextToken(pair.rightAr);
-        const userRight = normalizeTextToken(userMap[pair.leftAr] ?? '');
-        if (userRight && userRight === expectedRight) {
-          matched += 1;
-        }
-      }
-      const allRight = matched === pairs.length;
-      const earned = allRight ? maxMarks : Math.floor((matched / pairs.length) * maxMarks);
-      return { isCorrect: allRight, needsManualGrading: false, earnedMarks: earned };
-    } catch {
-      return { isCorrect: false, needsManualGrading: false, earnedMarks: 0 };
-    }
-  }
-
-  if (question.questionType === 'ordering') {
-    const expectedOrder = (
-      question.orderingItemsAr && question.orderingItemsAr.length > 0
-        ? question.orderingItemsAr
-        : question.correctAnswer.split('|')
-    ).map(normalizeTextToken);
-    let userOrder: string[] = [];
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        userOrder = parsed.map((x) => normalizeTextToken(String(x)));
-      }
-    } catch {
-      userOrder = trimmed.split('|').map(normalizeTextToken);
-    }
-    const exact =
-      expectedOrder.length > 0 &&
-      expectedOrder.length === userOrder.length &&
-      expectedOrder.every((item, idx) => item === userOrder[idx]);
-    return { isCorrect: exact, needsManualGrading: false, earnedMarks: exact ? maxMarks : 0 };
-  }
-
-  if (question.questionType === 'fill_blank' || question.questionType === 'short_answer') {
-    const accepted = question.correctAnswer
-      .split('|')
-      .map(normalizeTextToken)
-      .filter(Boolean);
-    const userNorm = normalizeTextToken(trimmed);
-    const ok = accepted.some((ans) => ans === userNorm);
-    if (ok) {
-      return { isCorrect: true, needsManualGrading: false, earnedMarks: maxMarks };
-    }
-    // Also check if numeric equivalence matches for math short answer
-    const userNum = parseNumericOrMathValue(trimmed);
-    const expNum = parseNumericOrMathValue(question.correctAnswer);
-    if (userNum.value !== null && expNum.value !== null) {
-      const tol = question.numericTolerance ?? Math.max(0.01, Math.abs(expNum.value) * 0.01);
-      if (Math.abs(userNum.value - expNum.value) <= tol) {
-        return { isCorrect: true, needsManualGrading: false, earnedMarks: maxMarks };
-      }
-    }
-    return { isCorrect: false, needsManualGrading: false, earnedMarks: 0 };
-  }
-
-  if (question.questionType === 'numeric') {
-    const userParsed = parseNumericOrMathValue(trimmed);
-    const expParsed = parseNumericOrMathValue(question.correctAnswer);
-
-    if (userParsed.value !== null && expParsed.value !== null) {
-      // Never silently accept wrong unit when requiredUnit is explicitly configured and user typed a unit
-      if (question.requiredUnit && userParsed.unit) {
-        if (normalizeUnit(userParsed.unit) !== normalizeUnit(question.requiredUnit)) {
-          return { isCorrect: false, needsManualGrading: false, earnedMarks: 0 };
-        }
-      }
-      const tol =
-        question.numericTolerance ?? Math.max(0.02, Math.abs(expParsed.value) * 0.02);
-      const ok = Math.abs(userParsed.value - expParsed.value) <= tol;
-      return { isCorrect: ok, needsManualGrading: false, earnedMarks: ok ? maxMarks : 0 };
-    }
-  }
-
-  // Default exact normalized match (mcq, true_false, diagram_interpretation, data_graph_analysis)
-  const ok = normalizeTextToken(trimmed) === normalizeTextToken(question.correctAnswer);
-  return { isCorrect: ok, needsManualGrading: false, earnedMarks: ok ? maxMarks : 0 };
-}
-
-export function gradeBankAssessment(
-  questions: Question[],
-  userAnswers: Record<string, string>,
-  options?: {
-    passingScorePercent?: number;
-    timeSpentSeconds?: number;
-    objectives?: LearningObjective[];
-  }
-): AssessmentResult {
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let unansweredCount = 0;
-  let manualPendingCount = 0;
-  let earnedMarks = 0;
-  let totalMarks = 0;
-
-  const diffBuckets = new Map<
-    DifficultyLevel,
-    { total: number; correct: number; earned: number; max: number }
-  >();
-  const objBuckets = new Map<
-    string,
-    { label: string; total: number; correct: number; earned: number; max: number }
-  >();
-
-  const objectiveLabelMap = new Map<string, string>();
-  for (const obj of options?.objectives ?? []) {
-    objectiveLabelMap.set(obj.id, `${obj.code}: ${obj.statementAr}`);
-  }
-
-  const breakdown: GradedQuestionResult[] = questions.map((rawQ) => {
-    const q = normalizeQuestionDefaults(rawQ);
-    const userAnswer = userAnswers[q.id] ?? '';
-    const maxMarks = q.marks || 1;
-    totalMarks += maxMarks;
-
-    const hasAnswer = userAnswer.trim().length > 0;
-    const outcome = gradeSingleBankQuestion(q, userAnswer);
-
-    if (!hasAnswer) {
-      unansweredCount += 1;
-    } else if (outcome.needsManualGrading) {
-      manualPendingCount += 1;
-    } else if (outcome.isCorrect) {
-      correctCount += 1;
-    } else {
-      incorrectCount += 1;
-    }
-
-    earnedMarks += outcome.earnedMarks;
-
-    const db = diffBuckets.get(q.difficulty) ?? { total: 0, correct: 0, earned: 0, max: 0 };
-    db.total += 1;
-    if (outcome.isCorrect) db.correct += 1;
-    db.earned += outcome.earnedMarks;
-    db.max += maxMarks;
-    diffBuckets.set(q.difficulty, db);
-
-    const objKey = q.learningObjectiveId ?? q.lessonId;
-    const objLabel =
-      (q.learningObjectiveId ? objectiveLabelMap.get(q.learningObjectiveId) : undefined) ??
-      q.conceptAr ??
-      `مفهوم الدرس (${q.lessonId})`;
-    const ob = objBuckets.get(objKey) ?? {
-      label: objLabel,
-      total: 0,
-      correct: 0,
-      earned: 0,
-      max: 0,
-    };
-    ob.total += 1;
-    if (outcome.isCorrect) ob.correct += 1;
-    ob.earned += outcome.earnedMarks;
-    ob.max += maxMarks;
-    objBuckets.set(objKey, ob);
-
-    return {
-      questionId: q.id,
-      questionType: q.questionType,
-      difficulty: q.difficulty,
-      learningObjectiveId: q.learningObjectiveId,
-      isCorrect: outcome.isCorrect,
-      needsManualGrading: outcome.needsManualGrading,
-      userAnswer,
-      correctAnswer: q.correctAnswer,
-      earnedMarks: outcome.earnedMarks,
-      maxMarks,
-      explanationAr: q.explanationAr,
-      whyCorrectAr: q.whyCorrectAr,
-      solutionStepsAr: q.solutionStepsAr,
-      commonMistakeAr: q.commonMistakeAr,
-      conceptAr: q.conceptAr,
-      rubricAr: q.rubricAr,
-      sourceRefAr: q.sourceRefAr,
-    };
-  });
-
-  const autoGradableMarks = breakdown
-    .filter((b) => !b.needsManualGrading)
-    .reduce((sum, b) => sum + b.maxMarks, 0);
-  const denominator = autoGradableMarks > 0 ? autoGradableMarks : totalMarks;
-  const scorePercent = denominator > 0 ? Math.round((earnedMarks / denominator) * 100) : 0;
-
-  const difficultyBreakdown: BreakdownStat[] = Array.from(diffBuckets.entries()).map(
-    ([key, val]) => ({
-      key,
-      labelAr: DIFFICULTY_LABELS_AR[key],
-      total: val.total,
-      correct: val.correct,
-      earnedMarks: val.earned,
-      maxMarks: val.max,
-      accuracyPercent: val.total > 0 ? Math.round((val.correct / val.total) * 100) : 0,
-    })
-  );
-
-  const objectiveBreakdown: BreakdownStat[] = Array.from(objBuckets.entries()).map(
-    ([key, val]) => ({
-      key,
-      labelAr: val.label,
-      total: val.total,
-      correct: val.correct,
-      earnedMarks: val.earned,
-      maxMarks: val.max,
-      accuracyPercent: val.total > 0 ? Math.round((val.correct / val.total) * 100) : 0,
-    })
-  );
-
-  const strongTopicsAr = objectiveBreakdown
-    .filter((o) => o.accuracyPercent >= 75)
-    .map((o) => o.labelAr);
-  const weakTopicsAr = objectiveBreakdown
-    .filter((o) => o.accuracyPercent < 60)
-    .map((o) => o.labelAr);
-
-  const passingThreshold = options?.passingScorePercent ?? 60;
-
-  return {
-    totalQuestions: questions.length,
-    correctCount,
-    incorrectCount,
-    unansweredCount,
-    manualPendingCount,
-    earnedMarks,
-    totalMarks,
-    scorePercent,
-    timeSpentSeconds: options?.timeSpentSeconds,
-    passed: scorePercent >= passingThreshold,
-    difficultyBreakdown,
-    objectiveBreakdown,
-    strongTopicsAr,
-    weakTopicsAr,
-    breakdown,
-  };
 }
 
 /**
@@ -653,7 +492,8 @@ export function validateQuestionScientifically(question: Question): ScientificVa
       }
     }
     if (
-      (question.promptAr.includes('معادلة') || question.promptAr.includes('تفاعل')) &&
+      (question.promptAr.includes('معادلة') || question.promptAr.includes('تفاعل متزن') || question.promptAr.includes('أكمل التفاعل')) &&
+      question.questionType !== 'true_false' &&
       /[A-Z]{2,}/.test(question.promptAr) &&
       !question.promptAr.includes('→') &&
       !question.promptAr.includes('⇌') &&
@@ -773,22 +613,17 @@ export function detectQuestionDuplicates(questions: Question[]): DuplicateMatch[
   return matches;
 }
 
-/**
- * Adaptive Practice Algorithm (Stage 10)
- * Never confuses a lack of attempts with poor understanding.
- */
-export function buildAdaptivePracticePlan(params: {
-  questions: Question[];
+export function buildAdaptivePracticePlan<T extends PublicQuestion>(params: {
+  questions: T[];
   answerHistory: StudentAnswerDetail[];
   subjectId?: SubjectId;
   lessonId?: string;
 }): {
   recommendation: RevisionRecommendation;
-  selectedQuestions: Question[];
+  selectedQuestions: T[];
   hasSufficientData: boolean;
 } {
   const pool = params.questions
-    .map(normalizeQuestionDefaults)
     .filter((q) => isQuestionDeliverableToStudent(q))
     .filter((q) => (params.subjectId ? q.subjectId === params.subjectId : true))
     .filter((q) => (params.lessonId ? q.lessonId === params.lessonId : true));
@@ -799,9 +634,13 @@ export function buildAdaptivePracticePlan(params: {
   const subjectId = params.subjectId ?? pool[0]?.subjectId ?? 'physics';
 
   if (relevantHistory.length === 0) {
-    // No attempts yet — do NOT claim poor understanding! Provide balanced starter mix.
     const starter = pool
-      .filter((q) => q.difficulty === 'foundation' || q.difficulty === 'basic_application' || q.difficulty === 'intermediate')
+      .filter(
+        (q) =>
+          q.difficulty === 'foundation' ||
+          q.difficulty === 'basic_application' ||
+          q.difficulty === 'intermediate'
+      )
       .slice(0, 6);
     const selected = starter.length > 0 ? starter : pool.slice(0, 6);
     return {
@@ -812,7 +651,8 @@ export function buildAdaptivePracticePlan(params: {
         subjectId,
         lessonId: params.lessonId,
         reasonAr: 'لا توجد محاولات سابقة مسجلة في هذا النطاق بعد (عدم المحاولة لا يعني ضعفاً).',
-        recommendedActionAr: 'ابدأ بجلسة استكشافية متوازنة من المستويات التأسيسية والمتوسطة لتحديد مستواك الفعلي.',
+        recommendedActionAr:
+          'ابدأ بجلسة استكشافية متوازنة من المستويات التأسيسية والمتوسطة لتحديد مستواك الفعلي.',
         recommendedDifficulty: 'foundation',
         questionIds: selected.map((q) => q.id),
         priority: 'normal',
@@ -820,7 +660,6 @@ export function buildAdaptivePracticePlan(params: {
     };
   }
 
-  // Group accuracy by learningObjective and difficulty
   const objStats = new Map<string, { total: number; correct: number }>();
   const easyStats = { total: 0, correct: 0 };
   const overallStats = { total: 0, correct: 0 };
@@ -844,7 +683,6 @@ export function buildAdaptivePracticePlan(params: {
     }
   }
 
-  // Check struggling objective (>=2 attempts and <60% accuracy)
   let weakestObjId: string | undefined;
   let weakestAcc = 101;
   for (const [objId, stat] of objStats.entries()) {
@@ -873,7 +711,8 @@ export function buildAdaptivePracticePlan(params: {
         lessonId: params.lessonId,
         learningObjectiveId: weakestObjId,
         reasonAr: `رُصدت صعوبة متكررة في الهدف التعليمي (${weakestObjId}) بنسبة دقة ${weakestAcc}% خلال المحاولات المسجلة.`,
-        recommendedActionAr: 'جلسة مراجعة مركزة بأسئلة تأسيسية وتطبيق مباشر مع إعادة الأسئلة المخطوءة.',
+        recommendedActionAr:
+          'جلسة مراجعة مركزة بأسئلة تأسيسية وتطبيق مباشر مع إعادة الأسئلة المخطوءة.',
         recommendedDifficulty: 'foundation',
         questionIds: selected.map((q) => q.id),
         priority: 'high',
@@ -964,13 +803,12 @@ export function shuffleQuestions<T>(items: T[], seed?: number): T[] {
 /**
  * Generate an Examination strictly from APPROVED questions matching the blueprint.
  */
-export function generateExamFromBlueprint(
+export function generateExamFromBlueprint<T extends PublicQuestion>(
   blueprint: ExaminationBlueprint,
-  allQuestions: Question[],
+  allQuestions: T[],
   seed?: number
-): Question[] {
+): T[] {
   const approvedPool = allQuestions
-    .map(normalizeQuestionDefaults)
     .filter((q) => isQuestionDeliverableToStudent(q))
     .filter((q) => q.subjectId === blueprint.subjectId)
     .filter((q) =>
@@ -997,10 +835,9 @@ export function generateExamFromBlueprint(
     ? shuffleQuestions(approvedPool, seed)
     : approvedPool;
 
-  const selected: Question[] = [];
+  const selected: T[] = [];
   const selectedIds = new Set<string>();
 
-  // Respect requested difficulty distribution first
   const entries = Object.entries(blueprint.difficultyDistribution) as [DifficultyLevel, number][];
   for (const [diff, targetCount] of entries) {
     if (!targetCount || targetCount <= 0) continue;
@@ -1014,7 +851,6 @@ export function generateExamFromBlueprint(
     }
   }
 
-  // Fill remaining slots up to blueprint.questionCount from approvedPool
   for (const q of orderedPool) {
     if (selected.length >= blueprint.questionCount) break;
     if (!selectedIds.has(q.id)) {
@@ -1026,9 +862,6 @@ export function generateExamFromBlueprint(
   return selected;
 }
 
-/**
- * Exam Timer Formatting & Draft Persistence Helpers (Stage 11 & 21)
- */
 export function formatExamCountdown(remainingSeconds: number): string {
   const safe = Math.max(0, Math.floor(remainingSeconds));
   const mins = Math.floor(safe / 60);
@@ -1038,6 +871,7 @@ export function formatExamCountdown(remainingSeconds: number): string {
 
 export interface PersistedExamDraft {
   blueprintId: string;
+  sessionId?: string;
   answers: Record<string, string>;
   flaggedIds: string[];
   startedAtMs: number;
@@ -1065,6 +899,7 @@ export function deserializeExamDraft(raw: string | null): PersistedExamDraft | n
     }
     return {
       blueprintId: parsed.blueprintId,
+      sessionId: typeof parsed.sessionId === 'string' ? parsed.sessionId : undefined,
       answers: parsed.answers as Record<string, string>,
       flaggedIds: Array.isArray(parsed.flaggedIds) ? parsed.flaggedIds : [],
       startedAtMs: parsed.startedAtMs,
@@ -1076,10 +911,6 @@ export function deserializeExamDraft(raw: string | null): PersistedExamDraft | n
   }
 }
 
-/**
- * Real Question Coverage Analytics per Lesson (Stage 17)
- * Uses actual counts; never fabricates coverage or mixes planning goals with real counts.
- */
 export interface LessonQuestionCoverageRow {
   lessonId: string;
   lessonTitleAr: string;
@@ -1088,6 +919,7 @@ export interface LessonQuestionCoverageRow {
   semester: 1 | 2;
   totalQuestions: number;
   approvedCount: number;
+  needsReviewCount: number;
   pendingCount: number;
   needsCorrectionCount: number;
   rejectedCount: number;
@@ -1102,6 +934,7 @@ export interface LessonQuestionCoverageRow {
 export interface QuestionCoverageReport {
   totalQuestions: number;
   approvedQuestions: number;
+  needsReviewQuestions: number;
   pendingQuestions: number;
   needsCorrectionQuestions: number;
   rejectedQuestions: number;
@@ -1112,6 +945,7 @@ export interface QuestionCoverageReport {
     titleAr: string;
     total: number;
     approved: number;
+    needsReview: number;
     pending: number;
   }[];
 }
@@ -1136,6 +970,7 @@ export function computeQuestionCoverageAnalytics(
   const lessonRows: LessonQuestionCoverageRow[] = lessons.map((lesson) => {
     const lessonQs = normalizedQs.filter((q) => q.lessonId === lesson.id);
     const approved = lessonQs.filter((q) => q.verificationStatus === 'APPROVED');
+    const needsReview = lessonQs.filter((q) => q.verificationStatus === 'NEEDS_REVIEW');
     const pending = lessonQs.filter((q) => q.verificationStatus === 'PENDING_REVIEW');
     const needsCorrection = lessonQs.filter(
       (q) => q.verificationStatus === 'NEEDS_CORRECTION' || q.verificationStatus === 'OUTDATED'
@@ -1159,6 +994,7 @@ export function computeQuestionCoverageAnalytics(
       semester: lesson.semester,
       totalQuestions: lessonQs.length,
       approvedCount: approved.length,
+      needsReviewCount: needsReview.length,
       pendingCount: pending.length,
       needsCorrectionCount: needsCorrection.length,
       rejectedCount: rejected.length,
@@ -1178,6 +1014,7 @@ export function computeQuestionCoverageAnalytics(
       titleAr: s.titleAr,
       total: subQs.length,
       approved: subQs.filter((q) => q.verificationStatus === 'APPROVED').length,
+      needsReview: subQs.filter((q) => q.verificationStatus === 'NEEDS_REVIEW').length,
       pending: subQs.filter((q) => q.verificationStatus === 'PENDING_REVIEW').length,
     };
   });
@@ -1185,6 +1022,7 @@ export function computeQuestionCoverageAnalytics(
   return {
     totalQuestions: normalizedQs.length,
     approvedQuestions: normalizedQs.filter((q) => q.verificationStatus === 'APPROVED').length,
+    needsReviewQuestions: normalizedQs.filter((q) => q.verificationStatus === 'NEEDS_REVIEW').length,
     pendingQuestions: normalizedQs.filter((q) => q.verificationStatus === 'PENDING_REVIEW').length,
     needsCorrectionQuestions: normalizedQs.filter(
       (q) => q.verificationStatus === 'NEEDS_CORRECTION' || q.verificationStatus === 'OUTDATED'
@@ -1193,5 +1031,342 @@ export function computeQuestionCoverageAnalytics(
     lessonsWithInsufficientCoverage: lessonRows.filter((r) => r.isBelowTarget).length,
     lessonRows,
     subjectDistribution,
+  };
+}
+
+const ALL_QUESTION_TYPES_LIST: QuestionType[] = [
+  'mcq',
+  'multi_select',
+  'true_false',
+  'fill_blank',
+  'short_answer',
+  'numeric',
+  'matching',
+  'ordering',
+  'scientific_explanation',
+  'structured_long',
+  'diagram_interpretation',
+  'data_graph_analysis',
+];
+
+const PRIVATE_KEY_FIELDS_FOR_AUDIT = new Set([
+  'correctAnswer',
+  'correctAnswers',
+  'matchingPairs',
+  'orderingItemsAr',
+  'explanationAr',
+  'whyCorrectAr',
+  'solutionStepsAr',
+  'commonMistakeAr',
+  'rubricAr',
+  'numericTolerance',
+  'aiMetadata',
+]);
+
+/**
+ * Subphase 4A Comprehensive Question Bank Integrity Audit.
+ * Validates unique IDs, duplicates, lesson/unit/semester links, learning objectives,
+ * all 5 difficulties, all 12 question type payloads, source attribution, scientific checks,
+ * and strict public/private answer-key separation.
+ */
+export function auditQuestionBankIntegrity(params: {
+  questions: Question[];
+  legacyIds?: Set<string>;
+  extendedIds?: Set<string>;
+  lessons: Lesson[];
+  units: Unit[];
+  objectives: LearningObjective[];
+  sources: CurriculumSource[];
+  publicSnapshot?: PublicQuestion[];
+}): QuestionBankAuditReport {
+  const normalized = params.questions.map(normalizeQuestionDefaults);
+  const lessonMap = new Map(params.lessons.map((l) => [l.id, l]));
+  const unitMap = new Map(params.units.map((u) => [u.id, u]));
+  const objMap = new Map(params.objectives.map((o) => [o.id, o]));
+  const srcMap = new Map(params.sources.map((s) => [s.id, s]));
+
+  const idCounts = new Map<string, number>();
+  for (const q of normalized) {
+    idCounts.set(q.id, (idCounts.get(q.id) ?? 0) + 1);
+  }
+  const duplicateIds = Array.from(idCounts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([id]) => id);
+
+  const lessonLinkIssues: QuestionLinkIssue[] = [];
+  const objectiveIssues: QuestionObjectiveIssue[] = [];
+  const typePayloadIssues: QuestionTypePayloadIssue[] = [];
+  const sourceVerificationIssues: QuestionSourceIssue[] = [];
+  const scientificIssues: { questionId: string; errorsAr: string[]; warningsAr: string[] }[] = [];
+
+  const coverageBySubject: Record<SubjectId, { total: number; approved: number }> = {
+    physics: { total: 0, approved: 0 },
+    chemistry: { total: 0, approved: 0 },
+    biology: { total: 0, approved: 0 },
+    math: { total: 0, approved: 0 },
+  };
+  const coverageByDifficulty: Record<DifficultyLevel, { total: number; approved: number }> = {
+    foundation: { total: 0, approved: 0 },
+    basic_application: { total: 0, approved: 0 },
+    intermediate: { total: 0, approved: 0 },
+    advanced: { total: 0, approved: 0 },
+    olympiad: { total: 0, approved: 0 },
+  };
+  const coverageByType = Object.fromEntries(
+    ALL_QUESTION_TYPES_LIST.map((t) => [t, { total: 0, approved: 0 }])
+  ) as Record<QuestionType, { total: number; approved: number }>;
+
+  const approvedPerLesson = new Map<string, number>();
+
+  for (const q of normalized) {
+    const isApproved = isQuestionDeliverableToStudent(q);
+    coverageBySubject[q.subjectId].total += 1;
+    coverageByDifficulty[q.difficulty].total += 1;
+    coverageByType[q.questionType].total += 1;
+    if (isApproved) {
+      coverageBySubject[q.subjectId].approved += 1;
+      coverageByDifficulty[q.difficulty].approved += 1;
+      coverageByType[q.questionType].approved += 1;
+      approvedPerLesson.set(q.lessonId, (approvedPerLesson.get(q.lessonId) ?? 0) + 1);
+    }
+
+    // 1. Lesson & Unit link validation
+    const lesson = lessonMap.get(q.lessonId);
+    if (!lesson) {
+      lessonLinkIssues.push({
+        questionId: q.id,
+        issue: 'missing_lesson',
+        detailAr: `الدرس المرتبط (${q.lessonId}) غير موجود في قائمة الدروس.`,
+      });
+    } else {
+      if (lesson.subjectId !== q.subjectId) {
+        lessonLinkIssues.push({
+          questionId: q.id,
+          issue: 'subject_mismatch',
+          detailAr: `مادة السؤال (${q.subjectId}) لا تطابق مادة الدرس (${lesson.subjectId}).`,
+        });
+      }
+      if (lesson.unitId !== q.unitId) {
+        lessonLinkIssues.push({
+          questionId: q.id,
+          issue: 'unit_mismatch',
+          detailAr: `وحدة السؤال (${q.unitId}) لا تطابق وحدة الدرس (${lesson.unitId}).`,
+        });
+      }
+      if (lesson.semester !== q.semester) {
+        lessonLinkIssues.push({
+          questionId: q.id,
+          issue: 'semester_mismatch',
+          detailAr: `فصل السؤال (${q.semester}) لا يطابق فصل الدرس (${lesson.semester}).`,
+        });
+      }
+    }
+    if (!unitMap.has(q.unitId)) {
+      lessonLinkIssues.push({
+        questionId: q.id,
+        issue: 'missing_unit',
+        detailAr: `الوحدة المرتبطة (${q.unitId}) غير مسجلة في فهرس الوحدات.`,
+      });
+    }
+
+    // 2. Learning objective validation
+    if (!q.learningObjectiveId) {
+      objectiveIssues.push({ questionId: q.id, issue: 'missing_objective' });
+    } else {
+      const obj = objMap.get(q.learningObjectiveId);
+      if (!obj) {
+        objectiveIssues.push({
+          questionId: q.id,
+          issue: 'unknown_objective',
+          learningObjectiveId: q.learningObjectiveId,
+        });
+      } else if (obj.subjectId !== q.subjectId || obj.unitId !== q.unitId) {
+        objectiveIssues.push({
+          questionId: q.id,
+          issue: 'objective_scope_mismatch',
+          learningObjectiveId: q.learningObjectiveId,
+        });
+      }
+    }
+
+    // 3. Question type payload validation (all 12 types)
+    if (q.questionType === 'mcq' && (!q.optionsAr || q.optionsAr.length < 3)) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'سؤال الاختيار من متعدد يتطلب ٣ خيارات على الأقل.',
+      });
+    }
+    if (
+      q.questionType === 'multi_select' &&
+      ((!q.optionsAr || q.optionsAr.length < 3) || (!q.correctAnswers || q.correctAnswers.length < 1))
+    ) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'سؤال الاختيار متعدد الإجابات يتطلب خيارات ومصفوفة correctAnswers.',
+      });
+    }
+    if (q.questionType === 'true_false' && !['صواب', 'خطأ', 'صح'].includes(q.correctAnswer.trim())) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'إجابة سؤال صح/خطأ يجب أن تكون «صواب» أو «خطأ».',
+      });
+    }
+    if (q.questionType === 'numeric' && parseNumericOrMathValue(q.correctAnswer).value === null) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'السؤال الرقمي لا يحتوي قيمة عددية قابلة للتحقق.',
+      });
+    }
+    if (q.questionType === 'matching' && (!q.matchingPairs || q.matchingPairs.length < 2)) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'سؤال المزاوجة يتطلب زوجين مترابطين على الأقل في matchingPairs.',
+      });
+    }
+    if (q.questionType === 'ordering' && (!q.orderingItemsAr || q.orderingItemsAr.length < 2)) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'سؤال الترتيب يتطلب عنصرين على الأقل في orderingItemsAr.',
+      });
+    }
+    if (
+      (q.questionType === 'scientific_explanation' || q.questionType === 'structured_long') &&
+      (!q.rubricAr || q.rubricAr.trim().length < 5)
+    ) {
+      typePayloadIssues.push({
+        questionId: q.id,
+        questionType: q.questionType,
+        issueAr: 'السؤال المقالي/التفسيري يتطلب سلم تقدير rubricAr واضحاً.',
+      });
+    }
+
+    // 4. Source & verification checks
+    if (!q.sourceId) {
+      sourceVerificationIssues.push({
+        questionId: q.id,
+        issue: 'missing_source_id',
+        origin: q.origin,
+        verificationStatus: q.verificationStatus,
+      });
+    } else if (!srcMap.has(q.sourceId)) {
+      sourceVerificationIssues.push({
+        questionId: q.id,
+        issue: 'unknown_source_id',
+        origin: q.origin,
+        verificationStatus: q.verificationStatus,
+        sourceId: q.sourceId,
+      });
+    }
+    if (
+      q.origin === 'OFFICIAL_PAST_EXAM' &&
+      (!q.sourceId || !srcMap.has(q.sourceId) || !q.sourceRefAr)
+    ) {
+      sourceVerificationIssues.push({
+        questionId: q.id,
+        issue: 'official_without_verified_source',
+        origin: q.origin,
+        verificationStatus: q.verificationStatus,
+        sourceId: q.sourceId,
+      });
+    }
+    if (q.origin === 'TEACHER_RESOURCE' && (!q.sourceRefAr || q.sourceRefAr.trim().length < 3)) {
+      sourceVerificationIssues.push({
+        questionId: q.id,
+        issue: 'teacher_without_attribution',
+        origin: q.origin,
+        verificationStatus: q.verificationStatus,
+      });
+    }
+    if (
+      q.origin === 'AI_GENERATED' &&
+      q.verificationStatus === 'APPROVED' &&
+      !q.lastReviewedAtIso
+    ) {
+      sourceVerificationIssues.push({
+        questionId: q.id,
+        issue: 'ai_approved_without_review_timestamp',
+        origin: q.origin,
+        verificationStatus: q.verificationStatus,
+        sourceId: q.sourceId,
+      });
+    }
+
+    // 5. Scientific check
+    const sci = validateQuestionScientifically(q);
+    if (!sci.isValid || sci.warningsAr.length > 0) {
+      scientificIssues.push({
+        questionId: q.id,
+        errorsAr: sci.errorsAr,
+        warningsAr: sci.warningsAr,
+      });
+    }
+  }
+
+  // Public/Private protection checks
+  const publicRecords = normalized.map(toPublicQuestion);
+  const privateKeys = normalized.map(toPrivateAnswerKey);
+  const publicLeakCheckPassed = publicRecords.every((pub) => {
+    const keys = Object.keys(pub as unknown as Record<string, unknown>);
+    return !keys.some((k) => PRIVATE_KEY_FIELDS_FOR_AUDIT.has(k));
+  });
+  const pubIdSet = new Set(publicRecords.map((p) => p.id));
+  const privIdSet = new Set(privateKeys.map((k) => k.questionId));
+  const publicPrivateParityPassed =
+    publicRecords.length === privateKeys.length &&
+    pubIdSet.size === privIdSet.size &&
+    Array.from(pubIdSet).every((id) => privIdSet.has(id));
+
+  let publicClientSyncPassed: boolean | undefined;
+  if (params.publicSnapshot) {
+    const deliverableServerIds = normalized
+      .filter((q) => isQuestionDeliverableToStudent(q))
+      .map((q) => q.id);
+    const snapshotIds = params.publicSnapshot.map((p) => p.id);
+    const snapshotNoLeaks = params.publicSnapshot.every((pub) => {
+      const keys = Object.keys(pub as unknown as Record<string, unknown>);
+      return !keys.some((k) => PRIVATE_KEY_FIELDS_FOR_AUDIT.has(k));
+    });
+    publicClientSyncPassed =
+      snapshotNoLeaks &&
+      deliverableServerIds.length === snapshotIds.length &&
+      deliverableServerIds.every((id, idx) => snapshotIds[idx] === id);
+  }
+
+  return {
+    generatedAtIso: new Date().toISOString(),
+    counts: {
+      legacy: params.legacyIds ? normalized.filter((q) => params.legacyIds!.has(q.id)).length : 0,
+      extended: params.extendedIds ? normalized.filter((q) => params.extendedIds!.has(q.id)).length : 0,
+      total: normalized.length,
+      approvedDeliverable: normalized.filter((q) => isQuestionDeliverableToStudent(q)).length,
+      needsReview: normalized.filter((q) => q.verificationStatus === 'NEEDS_REVIEW').length,
+      pendingReview: normalized.filter((q) => q.verificationStatus === 'PENDING_REVIEW').length,
+      needsCorrection: normalized.filter((q) => q.verificationStatus === 'NEEDS_CORRECTION').length,
+      rejected: normalized.filter((q) => q.verificationStatus === 'REJECTED').length,
+      outdated: normalized.filter((q) => q.verificationStatus === 'OUTDATED').length,
+    },
+    uniqueIdCheckPassed: duplicateIds.length === 0,
+    duplicateIds,
+    duplicateMatches: detectQuestionDuplicates(normalized),
+    lessonLinkIssues,
+    objectiveIssues,
+    typePayloadIssues,
+    sourceVerificationIssues,
+    scientificIssues,
+    coverageBySubject,
+    coverageByDifficulty,
+    coverageByType,
+    lessonsWithZeroApproved: params.lessons
+      .filter((l) => (approvedPerLesson.get(l.id) ?? 0) === 0)
+      .map((l) => l.id),
+    publicLeakCheckPassed,
+    publicPrivateParityPassed,
+    publicClientSyncPassed,
   };
 }

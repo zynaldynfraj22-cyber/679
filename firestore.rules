@@ -45,6 +45,35 @@ service cloud.firestore {
       return status in ['VERIFIED', 'NEEDS_REVIEW', 'OUTDATED', 'UNAVAILABLE'];
     }
 
+    function isValidQuestionDifficulty(d) {
+      return d in ['foundation', 'basic_application', 'intermediate', 'advanced', 'olympiad'];
+    }
+
+    function isValidQuestionType(t) {
+      return t in [
+        'mcq',
+        'multi_select',
+        'true_false',
+        'fill_blank',
+        'short_answer',
+        'numeric',
+        'matching',
+        'ordering',
+        'scientific_explanation',
+        'structured_long',
+        'diagram_interpretation',
+        'data_graph_analysis'
+      ];
+    }
+
+    function isValidQuestionOrigin(o) {
+      return o in ['OFFICIAL_PAST_EXAM', 'TEACHER_RESOURCE', 'AI_GENERATED', 'ADMIN_CREATED'];
+    }
+
+    function isValidQuestionVerificationState(s) {
+      return s in ['PENDING_REVIEW', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED', 'NEEDS_CORRECTION', 'OUTDATED'];
+    }
+
     // --- Validation Blueprints ---
     function isValidAcademicYear(data) {
       return data.keys().hasAll(['id', 'labelAr', 'trackAr', 'countryAr', 'isActive', 'updatedAt'])
@@ -175,22 +204,113 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isValidQuestion(data) {
-      return data.keys().hasAll(['id', 'subjectId', 'unitId', 'lessonId', 'semester', 'difficulty', 'questionType', 'promptAr', 'correctAnswer', 'explanationAr', 'marks', 'isPublished'])
-        && data.keys().hasOnly(['id', 'subjectId', 'unitId', 'lessonId', 'semester', 'difficulty', 'questionType', 'promptAr', 'optionsAr', 'correctAnswer', 'explanationAr', 'marks', 'isPublished'])
+    // Strict student-safe public question schema (never stores answer keys or grading explanations)
+    function isValidPublicQuestion(data) {
+      return data.keys().hasAll([
+          'id', 'subjectId', 'unitId', 'lessonId', 'semester', 'difficulty',
+          'questionType', 'promptAr', 'marks', 'verificationStatus', 'isPublished'
+        ])
+        && data.keys().hasOnly([
+          'id', 'titleAr', 'academicYearId', 'gradeAr', 'trackAr', 'subjectId', 'unitId', 'lessonId',
+          'learningObjectiveId', 'semester', 'difficulty', 'difficultyLevel', 'questionType',
+          'promptAr', 'optionsAr', 'matchingLeftsAr', 'matchingRightsShuffledAr',
+          'orderingItemsShuffledAr', 'requiredUnit', 'diagramKind', 'diagramCaptionAr',
+          'dataTable', 'conceptAr', 'marks', 'estimatedSeconds', 'origin',
+          'verificationStatus', 'sourceId', 'sourceRefAr', 'createdAtIso', 'lastReviewedAtIso',
+          'version', 'isPublished', 'updatedAt'
+        ])
+        && !data.keys().hasAny([
+          'correctAnswer', 'correctAnswers', 'matchingPairs', 'orderingItemsAr',
+          'explanationAr', 'whyCorrectAr', 'solutionStepsAr', 'commonMistakeAr',
+          'rubricAr', 'numericTolerance', 'aiMetadata'
+        ])
         && isValidId(data.id)
+        && (!('titleAr' in data) || (data.titleAr is string && data.titleAr.size() >= 2 && data.titleAr.size() <= 240))
         && isValidId(data.subjectId)
         && isValidId(data.unitId)
         && isValidId(data.lessonId)
         && data.semester is int && (data.semester == 1 || data.semester == 2)
-        && data.difficulty in ['foundation', 'intermediate', 'advanced', 'olympiad']
-        && data.questionType in ['mcq', 'numeric', 'short_answer']
-        && data.promptAr is string && data.promptAr.size() >= 5 && data.promptAr.size() <= 1500
-        && (!('optionsAr' in data) || (data.optionsAr is list && data.optionsAr.size() <= 6 && (data.optionsAr.size() == 0 || (data.optionsAr[0] is string && data.optionsAr[0].size() <= 400))))
-        && data.correctAnswer is string && data.correctAnswer.size() >= 1 && data.correctAnswer.size() <= 400
-        && data.explanationAr is string && data.explanationAr.size() >= 5 && data.explanationAr.size() <= 1500
-        && data.marks is int && data.marks >= 1 && data.marks <= 20
-        && data.isPublished is bool;
+        && isValidQuestionDifficulty(data.difficulty)
+        && isValidQuestionType(data.questionType)
+        && data.promptAr is string && data.promptAr.size() >= 5 && data.promptAr.size() <= 2000
+        && (!('optionsAr' in data) || (data.optionsAr is list && data.optionsAr.size() <= 8 && (data.optionsAr.size() == 0 || (data.optionsAr[0] is string && data.optionsAr[0].size() <= 400))))
+        && (!('matchingLeftsAr' in data) || (data.matchingLeftsAr is list && data.matchingLeftsAr.size() <= 10 && (data.matchingLeftsAr.size() == 0 || (data.matchingLeftsAr[0] is string && data.matchingLeftsAr[0].size() <= 400))))
+        && (!('matchingRightsShuffledAr' in data) || (data.matchingRightsShuffledAr is list && data.matchingRightsShuffledAr.size() <= 10 && (data.matchingRightsShuffledAr.size() == 0 || (data.matchingRightsShuffledAr[0] is string && data.matchingRightsShuffledAr[0].size() <= 400))))
+        && (!('orderingItemsShuffledAr' in data) || (data.orderingItemsShuffledAr is list && data.orderingItemsShuffledAr.size() <= 10 && (data.orderingItemsShuffledAr.size() == 0 || (data.orderingItemsShuffledAr[0] is string && data.orderingItemsShuffledAr[0].size() <= 400))))
+        && (!('requiredUnit' in data) || (data.requiredUnit is string && data.requiredUnit.size() <= 64))
+        && (!('diagramKind' in data) || (data.diagramKind is string && data.diagramKind.size() <= 64))
+        && (!('diagramCaptionAr' in data) || (data.diagramCaptionAr is string && data.diagramCaptionAr.size() <= 400))
+        && (!('dataTable' in data) || data.dataTable is map)
+        && (!('conceptAr' in data) || (data.conceptAr is string && data.conceptAr.size() <= 300))
+        && (!('learningObjectiveId' in data) || (data.learningObjectiveId is string && data.learningObjectiveId.size() <= 128))
+        && (!('academicYearId' in data) || (data.academicYearId is string && data.academicYearId.size() <= 32))
+        && (!('gradeAr' in data) || (data.gradeAr is string && data.gradeAr.size() <= 80))
+        && (!('trackAr' in data) || (data.trackAr is string && data.trackAr.size() <= 80))
+        && (!('difficultyLevel' in data) || (data.difficultyLevel is int && data.difficultyLevel >= 1 && data.difficultyLevel <= 5))
+        && (!('estimatedSeconds' in data) || (data.estimatedSeconds is int && data.estimatedSeconds >= 10 && data.estimatedSeconds <= 1800))
+        && (!('origin' in data) || isValidQuestionOrigin(data.origin))
+        && isValidQuestionVerificationState(data.verificationStatus)
+        && (!('sourceId' in data) || (data.sourceId is string && data.sourceId.size() <= 128))
+        && (!('sourceRefAr' in data) || (data.sourceRefAr is string && data.sourceRefAr.size() <= 400))
+        && (!('createdAtIso' in data) || (data.createdAtIso is string && data.createdAtIso.size() <= 64))
+        && (!('lastReviewedAtIso' in data) || (data.lastReviewedAtIso is string && data.lastReviewedAtIso.size() <= 64))
+        && (!('version' in data) || (data.version is int && data.version >= 1 && data.version <= 1000))
+        && data.marks is int && data.marks >= 1 && data.marks <= 30
+        && data.isPublished is bool
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidQuestionReview(data) {
+      return data.keys().hasAll(['id', 'questionId', 'previousStatus', 'newStatus', 'reviewerAr', 'notesAr', 'reviewedAtIso'])
+        && data.keys().hasOnly(['id', 'questionId', 'previousStatus', 'newStatus', 'reviewerAr', 'notesAr', 'reviewedAtIso', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.questionId)
+        && isValidQuestionVerificationState(data.previousStatus)
+        && isValidQuestionVerificationState(data.newStatus)
+        && data.reviewerAr is string && data.reviewerAr.size() >= 2 && data.reviewerAr.size() <= 180
+        && data.notesAr is string && data.notesAr.size() <= 1000
+        && data.reviewedAtIso is string && data.reviewedAtIso.size() >= 10 && data.reviewedAtIso.size() <= 64
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidQuestionVersion(data) {
+      return data.keys().hasAll(['id', 'questionId', 'version', 'editorAr', 'changeSummaryAr', 'snapshotPromptAr', 'snapshotAnswer', 'editedAtIso'])
+        && data.keys().hasOnly(['id', 'questionId', 'version', 'editorAr', 'changeSummaryAr', 'snapshotPromptAr', 'snapshotAnswer', 'editedAtIso', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.questionId)
+        && data.version is int && data.version >= 1 && data.version <= 1000
+        && data.editorAr is string && data.editorAr.size() >= 2 && data.editorAr.size() <= 180
+        && data.changeSummaryAr is string && data.changeSummaryAr.size() >= 2 && data.changeSummaryAr.size() <= 500
+        && data.snapshotPromptAr is string && data.snapshotPromptAr.size() >= 5 && data.snapshotPromptAr.size() <= 2000
+        && data.snapshotAnswer is string && data.snapshotAnswer.size() >= 1 && data.snapshotAnswer.size() <= 1000
+        && data.editedAtIso is string && data.editedAtIso.size() >= 10 && data.editedAtIso.size() <= 64
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidExaminationBlueprint(data) {
+      return data.keys().hasAll(['id', 'titleAr', 'examType', 'subjectId', 'unitIds', 'lessonIds', 'questionCount', 'totalMarks', 'durationMinutes', 'passingScorePercent', 'isPublished'])
+        && data.keys().hasOnly(['id', 'titleAr', 'examType', 'subjectId', 'semester', 'unitIds', 'lessonIds', 'learningObjectiveIds', 'questionCount', 'totalMarks', 'durationMinutes', 'passingScorePercent', 'randomizeOrder', 'showExplanationsImmediately', 'difficultyDistribution', 'allowedQuestionTypes', 'isOfficialBlueprint', 'sourceId', 'sourceNoteAr', 'isPublished', 'createdAtIso', 'updatedAt'])
+        && isValidId(data.id)
+        && data.titleAr is string && data.titleAr.size() >= 4 && data.titleAr.size() <= 200
+        && data.examType in ['lesson_test', 'unit_test', 'semester_test', 'comprehensive_subject', 'mock_final', 'custom_practice']
+        && isValidId(data.subjectId)
+        && data.unitIds is list && data.unitIds.size() <= 30
+        && data.lessonIds is list && data.lessonIds.size() <= 80
+        && data.questionCount is int && data.questionCount >= 1 && data.questionCount <= 100
+        && data.totalMarks is int && data.totalMarks >= 1 && data.totalMarks <= 300
+        && data.durationMinutes is int && data.durationMinutes >= 5 && data.durationMinutes <= 240
+        && data.passingScorePercent is int && data.passingScorePercent >= 1 && data.passingScorePercent <= 100
+        && data.isPublished is bool
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidQuestionCoverageTarget(data) {
+      return data.keys().hasAll(['lessonId', 'minQuestionsTarget', 'updatedAtIso'])
+        && data.keys().hasOnly(['lessonId', 'minQuestionsTarget', 'updatedAtIso', 'updatedAt'])
+        && isValidId(data.lessonId)
+        && data.minQuestionsTarget is int && data.minQuestionsTarget >= 1 && data.minQuestionsTarget <= 100
+        && data.updatedAtIso is string && data.updatedAtIso.size() >= 10 && data.updatedAtIso.size() <= 64
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
     function isValidUserProfile(data, userId) {
@@ -219,20 +339,6 @@ service cloud.firestore {
         && data.bestExamScore is int && data.bestExamScore >= 0 && data.bestExamScore <= 100
         && (!('notesAr' in data) || (data.notesAr is string && data.notesAr.size() <= 4000))
         && data.updatedAt is timestamp;
-    }
-
-    function isValidExamAttempt(data, userId) {
-      return data.keys().hasAll(['userId', 'lessonId', 'subjectId', 'mode', 'totalQuestions', 'correctCount', 'scorePercent', 'createdAt'])
-        && data.keys().hasOnly(['userId', 'lessonId', 'subjectId', 'mode', 'totalQuestions', 'correctCount', 'scorePercent', 'createdAt'])
-        && data.userId == userId
-        && isValidId(data.userId)
-        && isValidId(data.lessonId)
-        && isValidId(data.subjectId)
-        && data.mode in ['lesson_exam', 'question_bank']
-        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 100
-        && data.correctCount is int && data.correctCount >= 0 && data.correctCount <= data.totalQuestions
-        && data.scorePercent is int && data.scorePercent >= 0 && data.scorePercent <= 100
-        && data.createdAt is timestamp;
     }
 
     function isValidAdminUser(data, userId) {
@@ -266,14 +372,14 @@ service cloud.firestore {
 
     match /sources/{sourceId} {
       allow get: if isValidId(sourceId);
-      allow list: if true;
+      allow list: if resource.data.subjectId is string;
       allow create, update: if isValidId(sourceId) && isAdmin() && isValidCurriculumSource(incoming()) && incoming().id == sourceId && incoming().updatedAt == request.time;
       allow delete: if isValidId(sourceId) && isAdmin();
     }
 
     match /learningObjectives/{objectiveId} {
       allow get: if isValidId(objectiveId);
-      allow list: if true;
+      allow list: if resource.data.subjectId is string;
       allow create, update: if isValidId(objectiveId) && isAdmin() && isValidLearningObjective(incoming()) && incoming().id == objectiveId && incoming().updatedAt == request.time;
       allow delete: if isValidId(objectiveId) && isAdmin();
     }
@@ -312,12 +418,46 @@ service cloud.firestore {
       allow delete: if isValidId(lessonId) && isAdmin();
     }
 
+    // Student-safe public questions only; must be explicitly published AND APPROVED for non-admin reads
     match /questionBank/{questionId} {
-      allow get: if isValidId(questionId) && (existing().isPublished == true || isAdmin());
-      allow list: if resource.data.isPublished == true || isBootstrappedAdmin();
-      allow create: if isValidId(questionId) && isAdmin() && isValidQuestion(incoming()) && incoming().id == questionId;
-      allow update: if isValidId(questionId) && isAdmin() && isValidQuestion(incoming()) && incoming().id == existing().id;
+      allow get: if isValidId(questionId) && ((existing().isPublished == true && existing().verificationStatus == 'APPROVED') || isAdmin());
+      allow list: if (resource.data.isPublished == true && resource.data.verificationStatus == 'APPROVED') || isBootstrappedAdmin();
+      allow create: if isValidId(questionId) && isAdmin() && isValidPublicQuestion(incoming()) && incoming().id == questionId;
+      allow update: if isValidId(questionId) && isAdmin() && isValidPublicQuestion(incoming()) && incoming().id == existing().id;
       allow delete: if isValidId(questionId) && isAdmin();
+    }
+
+    // Server-only private answer keys & explanations (strictly inaccessible from client SDKs)
+    match /questionAnswerKeys/{questionId} {
+      allow read, write: if false;
+    }
+
+    match /questionReviews/{reviewId} {
+      allow get: if isValidId(reviewId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isValidId(reviewId) && isAdmin() && isValidQuestionReview(incoming()) && incoming().id == reviewId;
+      allow delete: if isValidId(reviewId) && isAdmin();
+    }
+
+    match /questionVersions/{versionId} {
+      allow get: if isValidId(versionId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isValidId(versionId) && isAdmin() && isValidQuestionVersion(incoming()) && incoming().id == versionId;
+      allow delete: if isValidId(versionId) && isAdmin();
+    }
+
+    match /examinationBlueprints/{blueprintId} {
+      allow get: if isValidId(blueprintId) && (existing().isPublished == true || isAdmin());
+      allow list: if resource.data.isPublished == true || isBootstrappedAdmin();
+      allow create, update: if isValidId(blueprintId) && isAdmin() && isValidExaminationBlueprint(incoming()) && incoming().id == blueprintId;
+      allow delete: if isValidId(blueprintId) && isAdmin();
+    }
+
+    match /questionCoverageTargets/{lessonId} {
+      allow get: if isValidId(lessonId);
+      allow list: if resource.data.minQuestionsTarget is int;
+      allow create, update: if isValidId(lessonId) && isAdmin() && isValidQuestionCoverageTarget(incoming()) && incoming().lessonId == lessonId;
+      allow delete: if isValidId(lessonId) && isAdmin();
     }
 
     // --- Student PII & Progress Collections ---
@@ -339,9 +479,12 @@ service cloud.firestore {
       match /progress/{lessonId} {
         allow get: if isValidId(userId) && isValidId(lessonId) && (isOwner(userId) || isAdmin());
         allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
-        allow create: if isValidId(userId) && isValidId(lessonId) && isVerifiedUser() && isOwner(userId)
+        // Students cannot initialize their own bestExamScore above 0; server Admin SDK records exam scores
+        allow create: if isValidId(userId) && isValidId(lessonId) && isVerifiedUser() && (isOwner(userId) || isAdmin())
           && isValidLessonProgress(incoming(), userId, lessonId)
-          && incoming().updatedAt == request.time;
+          && incoming().updatedAt == request.time
+          && (isAdmin() || incoming().bestExamScore == 0);
+        // Students cannot tamper with bestExamScore; only status, bookmarked, notesAr, updatedAt may change client-side
         allow update: if isValidId(userId) && isValidId(lessonId) && isVerifiedUser() && (isOwner(userId) || isAdmin())
           && isValidLessonProgress(incoming(), userId, lessonId)
           && incoming().userId == existing().userId
@@ -350,19 +493,27 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && (
             isAdmin()
-            || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'bookmarked', 'bestExamScore', 'notesAr', 'updatedAt'])
+            || (
+              incoming().bestExamScore == existing().bestExamScore
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'bookmarked', 'notesAr', 'updatedAt'])
+            )
           );
         allow delete: if isValidId(userId) && isValidId(lessonId) && (isOwner(userId) || isAdmin());
       }
 
+      // Exam attempts are strictly server-created via Firebase Admin SDK (no client spoofing)
       match /attempts/{attemptId} {
         allow get: if isValidId(userId) && isValidId(attemptId) && (isOwner(userId) || isAdmin());
         allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
-        allow create: if isValidId(userId) && isValidId(attemptId) && isVerifiedUser() && isOwner(userId)
-          && isValidExamAttempt(incoming(), userId)
-          && incoming().createdAt == request.time;
-        allow update: if false;
+        allow create, update: if false;
         allow delete: if isValidId(userId) && isAdmin();
+      }
+
+      // Per-question practice logs are strictly server-created via Firebase Admin SDK
+      match /practiceLogs/{logId} {
+        allow get: if isValidId(userId) && isValidId(logId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+        allow create, update, delete: if false;
       }
     }
 

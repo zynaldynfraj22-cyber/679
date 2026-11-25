@@ -35,6 +35,7 @@ export type QuestionOrigin =
 
 export type QuestionVerificationState =
   | 'PENDING_REVIEW'
+  | 'NEEDS_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
   | 'NEEDS_CORRECTION'
@@ -189,11 +190,20 @@ export interface LessonTermDefinition {
   definitionAr: string;
 }
 
+export interface LessonSummaryComparison {
+  topicAr: string;
+  pointAAr: string;
+  pointBAr: string;
+}
+
 export interface LessonComprehensiveSummary {
   detailedSummaryAr: string;
   quickRevisionAr: string[];
   keyTermsAr: LessonTermDefinition[];
   memorizePointsAr: string[];
+  comparisonsAr?: LessonSummaryComparison[];
+  importantLawsAr?: string[];
+  examNotesAr?: string[];
 }
 
 export interface LessonReviewSection {
@@ -208,8 +218,13 @@ export interface LessonSection {
   contentAr: string;
   keyTakeawayAr: string;
   examTipAr?: string;
+  learningObjectiveIds?: string[];
   definitionsAr?: LessonTermDefinition[];
   lawsAr?: string[];
+  derivationsAr?: string[];
+  practicalApplicationsAr?: string[];
+  commonMisconceptionsAr?: string[];
+  importantNotesAr?: string[];
   tables?: StructuredTable[];
   diagram?: LessonDiagramSpec;
 }
@@ -218,18 +233,25 @@ export interface SolvedExample {
   id: string;
   titleAr: string;
   difficulty?: ExampleDifficulty;
+  learningObjectiveId?: string;
+  conceptOrLawAr?: string;
   problemAr: string;
   givenAr: string[];
   stepsAr: string[];
   finalAnswerAr: string;
+  whyMethodWorksAr?: string;
+  commonMistakeAr?: string;
 }
 
 export interface PracticeExercise {
   id: string;
   tier?: ExerciseTier;
+  learningObjectiveId?: string;
   promptAr: string;
   hintAr: string;
   answerAr: string;
+  explanationAr?: string;
+  marks?: number;
 }
 
 export interface Lesson {
@@ -293,6 +315,7 @@ export interface AiGenerationMetadata {
 
 export interface Question {
   id: string;
+  titleAr?: string;
   academicYearId?: string;
   gradeAr?: string;
   trackAr?: string;
@@ -333,6 +356,73 @@ export interface Question {
   lastReviewedAtIso?: string;
   version?: number;
   isPublished: boolean;
+}
+
+/**
+ * Student-safe public question projection.
+ * Strictly excludes correctAnswer, correctAnswers, matchingPairs, orderingItemsAr,
+ * explanationAr, whyCorrectAr, solutionStepsAr, commonMistakeAr, rubricAr,
+ * numericTolerance, and aiMetadata before submission.
+ */
+export interface PublicQuestion {
+  id: string;
+  titleAr?: string;
+  academicYearId?: string;
+  gradeAr?: string;
+  trackAr?: string;
+  subjectId: SubjectId;
+  unitId: string;
+  lessonId: string;
+  learningObjectiveId?: string;
+  semester: Semester;
+  difficulty: DifficultyLevel;
+  difficultyLevel?: DifficultyTier;
+  questionType: QuestionType;
+  promptAr: string;
+  optionsAr?: string[];
+  matchingLeftsAr?: string[];
+  matchingRightsShuffledAr?: string[];
+  orderingItemsShuffledAr?: string[];
+  requiredUnit?: string;
+  diagramKind?: LessonDiagramKind;
+  diagramCaptionAr?: string;
+  dataTable?: StructuredTable;
+  conceptAr?: string;
+  marks: number;
+  estimatedSeconds?: number;
+  origin?: QuestionOrigin;
+  verificationStatus?: QuestionVerificationState;
+  sourceId?: string;
+  sourceRefAr?: string;
+  createdAtIso?: string;
+  lastReviewedAtIso?: string;
+  version?: number;
+  isPublished: boolean;
+}
+
+/**
+ * Private server-only answer key & grading metadata stored in /questionAnswerKeys/{questionId}.
+ */
+export interface QuestionAnswerKey {
+  questionId: string;
+  correctAnswer: string;
+  correctAnswers?: string[];
+  matchingPairs?: MatchingPair[];
+  orderingItemsAr?: string[];
+  rubricAr?: string;
+  numericTolerance?: number;
+  requiredUnit?: string;
+  explanationAr: string;
+  whyCorrectAr?: string;
+  solutionStepsAr?: string[];
+  commonMistakeAr?: string;
+  conceptAr?: string;
+  origin?: QuestionOrigin;
+  sourceId?: string;
+  sourceRefAr?: string;
+  aiMetadata?: AiGenerationMetadata;
+  scientificValidation?: ScientificValidationReport;
+  updatedAtIso?: string;
 }
 
 export interface QuestionReviewRecord {
@@ -446,6 +536,7 @@ export interface ExamAttempt {
   timeSpentSeconds?: number;
   passed?: boolean;
   answerDetails?: StudentAnswerDetail[];
+  gradingSource?: 'server';
   createdAtIso: string;
 }
 
@@ -588,4 +679,223 @@ export interface AdminAssistDraft {
   stepsAr?: string[];
   answerAr?: string;
 }
+
+export interface PracticeStartResponse {
+  sessionId: string;
+  questions: PublicQuestion[];
+  totalAvailable: number;
+}
+
+export interface PracticeAnswerResponse {
+  questionId: string;
+  isCorrect: boolean;
+  needsManualGrading: boolean;
+  earnedMarks: number;
+  maxMarks: number;
+  correctAnswer: string;
+  explanationAr: string;
+  whyCorrectAr?: string;
+  solutionStepsAr?: string[];
+  commonMistakeAr?: string;
+  rubricAr?: string;
+  persistedToFirestore: boolean;
+}
+
+export interface ExamStartResponse {
+  sessionId: string;
+  mode: ExamBlueprintType | 'lesson_exam' | 'question_bank';
+  titleAr: string;
+  startedAtMs: number;
+  durationSeconds: number;
+  passingScorePercent: number;
+  questions: PublicQuestion[];
+}
+
+export interface ExamSubmitResponse {
+  sessionId: string;
+  attempt: ExamAttempt;
+  result: AssessmentResult;
+  persistedToFirestore: boolean;
+  persistenceNoticeAr?: string;
+}
+
+export interface QuestionAuditSummary {
+  totalQuestions: number;
+  approvedCount: number;
+  needsReviewCount: number;
+  pendingReviewCount: number;
+  needsCorrectionCount: number;
+  rejectedCount: number;
+  outdatedCount: number;
+  duplicatePairsCount: number;
+  missingSourceCount: number;
+}
+
+export interface QuestionLinkIssue {
+  questionId: string;
+  issue:
+    | 'missing_lesson'
+    | 'missing_unit'
+    | 'subject_mismatch'
+    | 'unit_mismatch'
+    | 'semester_mismatch';
+  detailAr: string;
+}
+
+export interface QuestionObjectiveIssue {
+  questionId: string;
+  issue: 'missing_objective' | 'unknown_objective' | 'objective_scope_mismatch';
+  learningObjectiveId?: string;
+}
+
+export interface QuestionTypePayloadIssue {
+  questionId: string;
+  questionType: QuestionType;
+  issueAr: string;
+}
+
+export interface QuestionSourceIssue {
+  questionId: string;
+  issue:
+    | 'missing_source_id'
+    | 'unknown_source_id'
+    | 'official_without_verified_source'
+    | 'teacher_without_attribution'
+    | 'ai_approved_without_review_timestamp';
+  origin?: QuestionOrigin;
+  verificationStatus?: QuestionVerificationState;
+  sourceId?: string;
+}
+
+export interface QuestionBankAuditReport {
+  generatedAtIso: string;
+  counts: {
+    legacy: number;
+    extended: number;
+    total: number;
+    approvedDeliverable: number;
+    needsReview: number;
+    pendingReview: number;
+    needsCorrection: number;
+    rejected: number;
+    outdated: number;
+  };
+  uniqueIdCheckPassed: boolean;
+  duplicateIds: string[];
+  duplicateMatches: DuplicateMatch[];
+  lessonLinkIssues: QuestionLinkIssue[];
+  objectiveIssues: QuestionObjectiveIssue[];
+  typePayloadIssues: QuestionTypePayloadIssue[];
+  sourceVerificationIssues: QuestionSourceIssue[];
+  scientificIssues: {
+    questionId: string;
+    errorsAr: string[];
+    warningsAr: string[];
+  }[];
+  coverageBySubject: Record<SubjectId, { total: number; approved: number }>;
+  coverageByDifficulty: Record<DifficultyLevel, { total: number; approved: number }>;
+  coverageByType: Record<QuestionType, { total: number; approved: number }>;
+  lessonsWithZeroApproved: string[];
+  publicLeakCheckPassed: boolean;
+  publicPrivateParityPassed: boolean;
+  publicClientSyncPassed?: boolean;
+}
+
+export interface MigrationReport {
+  dryRun: boolean;
+  generatedAtIso: string;
+  totalScanned: number;
+  legacyCount: number;
+  extendedCount: number;
+  publicDocsPrepared: number;
+  privateAnswerKeyDocsPrepared: number;
+  statusBreakdown: Record<QuestionVerificationState, number>;
+  uniqueIdCheckPassed: boolean;
+  lessonLinkIssuesCount: number;
+  objectiveMissingCount: number;
+  objectiveInvalidCount: number;
+  typePayloadIssuesCount: number;
+  sourceIssuesCount: number;
+  scientificErrorsCount: number;
+  lessonsWithZeroApproved: string[];
+  publicLeakCheckPassed: boolean;
+  parityCheckPassed: boolean;
+  incompleteOrMissingSourceIds: string[];
+  duplicateMatches: DuplicateMatch[];
+  warningsAr: string[];
+}
+
+export type LessonContentGapKind =
+  | 'short_explanation'
+  | 'insufficient_examples'
+  | 'insufficient_exercises'
+  | 'shallow_summary'
+  | 'missing_objectives'
+  | 'insufficient_question_bank'
+  | 'needs_source_verification'
+  | 'outdated_content';
+
+export interface LessonDeepCoverageRow {
+  lessonId: string;
+  subjectId: SubjectId;
+  unitId: string;
+  semester: Semester;
+  titleAr: string;
+  verificationStatus: VerificationStatus;
+  sectionsCount: number;
+  explanationChars: number;
+  detailedSummaryChars: number;
+  quickRevisionCount: number;
+  keyTermsCount: number;
+  solvedExamplesCount: number;
+  solvedExamplesTarget: number;
+  exampleDifficultyCounts: Record<ExampleDifficulty, number>;
+  exercisesCount: number;
+  exercisesTarget: number;
+  exerciseTierCounts: Record<ExerciseTier, number>;
+  objectivesLinkedCount: number;
+  objectivesTarget: number;
+  approvedQuestionsCount: number;
+  totalQuestionsCount: number;
+  questionBankTarget: number;
+  lessonTestTarget: number;
+  contentCompletenessPercent: number;
+  assessmentReadinessPercent: number;
+  isContentComplete4B: boolean;
+  isFullyAssessmentReady: boolean;
+  gaps: LessonContentGapKind[];
+  gapMessagesAr: string[];
+}
+
+export interface LearningObjectiveCoverageRow {
+  objective: LearningObjective;
+  lessonId?: string;
+  lessonTitleAr?: string;
+  coveredInExplanation: boolean;
+  coveredInSummary: boolean;
+  solvedExamplesCount: number;
+  exercisesCount: number;
+  approvedQuestionsCount: number;
+  hasAssessmentCoverage: boolean;
+  coverageStageAr: 'مكتمل التغطية' | 'مغطى بالدرس والتمارين' | 'تغطية جزئية' | 'غير مربوط بمحتوى';
+}
+
+export interface ComprehensiveCoverageMatrixReport {
+  generatedAtIso: string;
+  lessonsTotal: number;
+  contentComplete4BCount: number;
+  fullyAssessmentReadyCount: number;
+  lessonsMeetingExamplesTarget: number;
+  lessonsMeetingExercisesTarget: number;
+  lessonsMeetingQuestionBankTarget: number;
+  objectivesTotal: number;
+  objectivesCoveredInContentCount: number;
+  objectivesCoveredInQuestionsCount: number;
+  avgContentCompletenessPercent: number;
+  avgAssessmentReadinessPercent: number;
+  lessonRows: LessonDeepCoverageRow[];
+  objectiveRows: LearningObjectiveCoverageRow[];
+}
+
+
 

@@ -1,6 +1,9 @@
 import type { Lesson } from '../types/curriculum';
+import { applyLessonExpansions } from './expansions/applyLessonExpansion';
+import { BIOLOGY_EXPANSIONS } from './expansions/biologyExpansions';
+import { MATH_EXPANSIONS } from './expansions/mathExpansions';
 
-export const LESSONS_PART_2: Lesson[] = [
+const RAW_LESSONS_PART_2: Lesson[] = [
   // ================= BIOLOGY (6 Existing Upgraded & Reclassified) =================
   {
     id: 'bio-u1-l1',
@@ -1120,3 +1123,8 @@ export const LESSONS_PART_2: Lesson[] = [
     isPublished: true,
   },
 ];
+
+export const LESSONS_PART_2: Lesson[] = applyLessonExpansions(RAW_LESSONS_PART_2, {
+  ...BIOLOGY_EXPANSIONS,
+  ...MATH_EXPANSIONS,
+});

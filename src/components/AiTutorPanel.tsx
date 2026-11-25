@@ -1,20 +1,34 @@
 import React from 'react';
-import { Send, Sparkles, BookOpen, Calculator, RefreshCw } from 'lucide-react';
+import {
+  Send,
+  Sparkles,
+  BookOpen,
+  Calculator,
+  RefreshCw,
+  LogIn,
+  ShieldCheck,
+} from 'lucide-react';
 import type {
   DifficultyLevel,
-  GeneratedPracticeQuestion,
   Lesson,
+  Question,
+  QuestionType,
   Subject,
   TutorMessage,
   Unit,
 } from '../types/curriculum';
 import { buildLessonTutorContext } from '../utils/curriculumEngine';
+import { DIFFICULTY_LABELS_AR, QUESTION_TYPE_LABELS_AR } from '../utils/questionEngine';
+import { generateAdminQuestionsApi, sendTutorChatApi } from '../services/firestoreService';
 
 interface AiTutorPanelProps {
   subjects: Subject[];
   units: Unit[];
   lessons: Lesson[];
   initialLessonId?: string;
+  isAuthenticated: boolean;
+  isAdminUser: boolean;
+  onSignIn: () => void;
 }
 
 export function AiTutorPanel({
@@ -22,6 +36,9 @@ export function AiTutorPanel({
   units,
   lessons,
   initialLessonId,
+  isAuthenticated,
+  isAdminUser,
+  onSignIn,
 }: AiTutorPanelProps) {
   const [selectedLessonId, setSelectedLessonId] = React.useState<string>(
     initialLessonId ?? lessons[0]?.id ?? ''
@@ -32,10 +49,10 @@ export function AiTutorPanel({
   const [loadingChat, setLoadingChat] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
+  // Admin-only AI question draft generation state
   const [genDifficulty, setGenDifficulty] = React.useState<DifficultyLevel>('intermediate');
-  const [generatedQuestions, setGeneratedQuestions] = React.useState<
-    GeneratedPracticeQuestion[]
-  >([]);
+  const [genType, setGenType] = React.useState<QuestionType>('mcq');
+  const [generatedQuestions, setGeneratedQuestions] = React.useState<Question[]>([]);
   const [loadingGen, setLoadingGen] = React.useState(false);
   const [revealedGenAnswers, setRevealedGenAnswers] = React.useState<Record<number, boolean>>(
     {}
@@ -47,8 +64,7 @@ export function AiTutorPanel({
     }
   }, [initialLessonId]);
 
-  const activeLesson =
-    lessons.find((l) => l.id === selectedLessonId) ?? lessons[0];
+  const activeLesson = lessons.find((l) => l.id === selectedLessonId) ?? lessons[0];
   const activeSubject = subjects.find((s) => s.id === activeLesson?.subjectId);
   const activeUnit = units.find((u) => u.id === activeLesson?.unitId);
 
@@ -57,32 +73,15 @@ export function AiTutorPanel({
     return buildLessonTutorContext(activeSubject, activeUnit, activeLesson);
   }, [activeLesson, activeSubject, activeUnit]);
 
-  const postTutorJson = async (url: string, payload: unknown) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      const rawText = await response.text();
-      let data: Record<string, unknown> = {};
-      if (rawText) {
-        try {
-          data = JSON.parse(rawText) as Record<string, unknown>;
-        } catch {
-          data = {};
-        }
-      }
-      return { response, data };
-    } finally {
-      clearTimeout(timer);
+  const sendMessage = async (
+    promptText: string,
+    overrideMode?: 'explain' | 'solve' | 'general'
+  ) => {
+    if (!isAuthenticated) {
+      setErrorMsg('يرجى تسجيل الدخول بحسابك أولاً لاستخدام المعلم الذكي.');
+      return;
     }
-  };
 
-  const sendMessage = async (promptText: string, overrideMode?: 'explain' | 'solve' | 'general') => {
     const trimmed = promptText.trim();
     if (!trimmed || !activeLesson || !activeSubject) return;
 
@@ -101,7 +100,7 @@ export function AiTutorPanel({
     setLoadingChat(true);
 
     try {
-      const { response, data } = await postTutorJson('/api/tutor/chat', {
+      const data = await sendTutorChatApi({
         message: trimmed,
         mode: chosenMode,
         lessonTitle: activeLesson.titleAr,
@@ -113,15 +112,6 @@ export function AiTutorPanel({
         })),
       });
 
-      if (!response.ok || typeof data.reply !== 'string') {
-        setErrorMsg(
-          typeof data.error === 'string'
-            ? data.error
-            : 'تعذر الحصول على رد من المعلم الذكي.'
-        );
-        return;
-      }
-
       const assistantMsg: TutorMessage = {
         id: `a-${Date.now()}`,
         role: 'assistant',
@@ -131,46 +121,38 @@ export function AiTutorPanel({
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setErrorMsg('استغرق الاتصال بالمعلم الذكي وقتاً أطول من المعتاد. يرجى المحاولة مرة أخرى.');
-      } else {
-        setErrorMsg('تعذر الاتصال بخادم المعلم الذكي. يرجى المحاولة مرة أخرى.');
-      }
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : 'تعذر الاتصال بخادم المعلم الذكي. يرجى المحاولة مرة أخرى.'
+      );
     } finally {
       setLoadingChat(false);
     }
   };
 
   const handleGenerateQuestions = async () => {
-    if (!activeLesson || !activeSubject) return;
+    if (!activeLesson || !activeSubject || !isAdminUser) return;
     setLoadingGen(true);
     setErrorMsg(null);
     setRevealedGenAnswers({});
 
     try {
-      const { response, data } = await postTutorJson('/api/tutor/generate-questions', {
+      const data = await generateAdminQuestionsApi({
+        subjectId: activeLesson.subjectId,
+        unitId: activeLesson.unitId,
+        lessonId: activeLesson.id,
+        semester: activeLesson.semester,
         lessonTitle: activeLesson.titleAr,
         subjectTitle: activeSubject.titleAr,
         difficulty: genDifficulty,
+        questionType: genType,
         count: 3,
         lessonContext,
       });
-
-      if (!response.ok) {
-        setErrorMsg(
-          typeof data.error === 'string' ? data.error : 'تعذر توليد أسئلة إضافية.'
-        );
-        return;
-      }
-      setGeneratedQuestions(
-        Array.isArray(data.questions) ? (data.questions as GeneratedPracticeQuestion[]) : []
-      );
+      setGeneratedQuestions(data.questions);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setErrorMsg('انتهت مهلة طلب توليد الأسئلة. يرجى المحاولة مجدداً.');
-      } else {
-        setErrorMsg('تعذر الاتصال بالخادم لتوليد الأسئلة.');
-      }
+      setErrorMsg(err instanceof Error ? err.message : 'تعذر توليد مسودات الأسئلة.');
     } finally {
       setLoadingGen(false);
     }
@@ -178,7 +160,7 @@ export function AiTutorPanel({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Left/Top Context & Practice Generator */}
+      {/* Left/Top Context & Governance-Gated Question Generator */}
       <aside className="lg:col-span-4 space-y-5">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <div className="flex items-center gap-2">
@@ -227,82 +209,121 @@ export function AiTutorPanel({
           )}
         </div>
 
-        {/* AI Question Generator anchored to lesson */}
+        {/* Question Bank Generation: Strictly Admin Only */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
-          <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
-            توليد أسئلة تدريبية إضافية
-          </h3>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            يولّد المعلم الذكي أسئلة جديدة مبنية على مادة الدرس المعتمدة دون الخروج عن المنهج.
-          </p>
-
-          <div>
-            <label
-              htmlFor="gen-difficulty"
-              className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
-            >
-              مستوى الصعوبة:
-            </label>
-            <select
-              id="gen-difficulty"
-              value={genDifficulty}
-              onChange={(e) => setGenDifficulty(e.target.value as DifficultyLevel)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100"
-            >
-              <option value="foundation">تأسيسي</option>
-              <option value="intermediate">متوسط</option>
-              <option value="advanced">متقدم</option>
-              <option value="olympiad">قدرات عليا</option>
-            </select>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+              توليد مسودات لبنك الأسئلة
+            </h3>
           </div>
 
-          <button
-            type="button"
-            disabled={loadingGen}
-            onClick={() => void handleGenerateQuestions()}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingGen ? 'animate-spin' : ''}`} />
-            <span>{loadingGen ? 'جاري توليد الأسئلة...' : 'توليد ٣ أسئلة تدريبية'}</span>
-          </button>
+          {!isAdminUser ? (
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              توليد وإضافة أسئلة جديدة لبنك الأسئلة الرسمي متاح حصرياً لمشرفي المنهج بعد التحقق
+              الرقابي (PENDING_REVIEW). يمكنك طرح أي طلب تدريب أو أمثلة إضافية مباشرة في محادثة
+              المعلم الذكي.
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                يُولّد ٣ مسودات أسئلة مربوطة بسياق الدرس وتُحفظ بحالة{' '}
+                <strong>PENDING_REVIEW</strong> في لوحة مراجعة المشرف.
+              </p>
 
-          {generatedQuestions.length > 0 && (
-            <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-              {generatedQuestions.map((gq, i) => (
-                <div
-                  key={i}
-                  className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-2 text-xs"
-                >
-                  <p className="font-semibold text-slate-900 dark:text-white leading-relaxed">
-                    {i + 1}. {gq.promptAr}
-                  </p>
-                  {gq.optionsAr && gq.optionsAr.length > 0 && (
-                    <ul className="space-y-1 text-slate-600 dark:text-slate-300 pr-3">
-                      {gq.optionsAr.map((o, oi) => (
-                        <li key={oi}>• {o}</li>
-                      ))}
-                    </ul>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setRevealedGenAnswers((prev) => ({ ...prev, [i]: !prev[i] }))
-                    }
-                    className="text-sky-700 dark:text-sky-400 font-semibold hover:underline cursor-pointer"
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="gen-difficulty"
+                    className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
                   >
-                    {revealedGenAnswers[i] ? 'إخفاء الحل' : 'عرض الإجابة والشرح'}
-                  </button>
-                  {revealedGenAnswers[i] && (
-                    <div className="bg-slate-50 dark:bg-slate-800 rounded p-2.5 space-y-1 text-slate-700 dark:text-slate-200">
-                      <p className="font-bold text-emerald-700 dark:text-emerald-400">
-                        الإجابة: {gq.correctAnswer}
-                      </p>
-                      <p className="leading-relaxed">{gq.explanationAr}</p>
-                    </div>
-                  )}
+                    مستوى الصعوبة:
+                  </label>
+                  <select
+                    id="gen-difficulty"
+                    value={genDifficulty}
+                    onChange={(e) => setGenDifficulty(e.target.value as DifficultyLevel)}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100"
+                  >
+                    {(Object.keys(DIFFICULTY_LABELS_AR) as DifficultyLevel[]).map((d) => (
+                      <option key={d} value={d}>
+                        {DIFFICULTY_LABELS_AR[d]}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
-            </div>
+
+                <div>
+                  <label
+                    htmlFor="gen-type"
+                    className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                  >
+                    نوع السؤال:
+                  </label>
+                  <select
+                    id="gen-type"
+                    value={genType}
+                    onChange={(e) => setGenType(e.target.value as QuestionType)}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100"
+                  >
+                    {(Object.keys(QUESTION_TYPE_LABELS_AR) as QuestionType[]).map((t) => (
+                      <option key={t} value={t}>
+                        {QUESTION_TYPE_LABELS_AR[t]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={loadingGen}
+                onClick={() => void handleGenerateQuestions()}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingGen ? 'animate-spin' : ''}`} />
+                <span>{loadingGen ? 'جاري التوليد...' : 'توليد ٣ مسودات للمراجعة'}</span>
+              </button>
+
+              {generatedQuestions.length > 0 && (
+                <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                  {generatedQuestions.map((gq, i) => (
+                    <div
+                      key={gq.id}
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-2 text-xs"
+                    >
+                      <p className="font-semibold text-slate-900 dark:text-white leading-relaxed">
+                        {i + 1}. {gq.promptAr}
+                      </p>
+                      {gq.optionsAr && gq.optionsAr.length > 0 && (
+                        <ul className="space-y-1 text-slate-600 dark:text-slate-300 pr-3">
+                          {gq.optionsAr.map((o, oi) => (
+                            <li key={oi}>• {o}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRevealedGenAnswers((prev) => ({ ...prev, [i]: !prev[i] }))
+                        }
+                        className="text-sky-700 dark:text-sky-400 font-semibold hover:underline cursor-pointer"
+                      >
+                        {revealedGenAnswers[i] ? 'إخفاء الحل' : 'عرض الإجابة والشرح'}
+                      </button>
+                      {revealedGenAnswers[i] && (
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded p-2.5 space-y-1 text-slate-700 dark:text-slate-200">
+                          <p className="font-bold text-emerald-700 dark:text-emerald-400">
+                            الإجابة: {gq.correctAnswer}
+                          </p>
+                          <p className="leading-relaxed">{gq.explanationAr}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </aside>
@@ -346,6 +367,24 @@ export function AiTutorPanel({
           </div>
         </div>
 
+        {/* Auth Notice for Guests */}
+        {!isAuthenticated && (
+          <div className="m-5 mb-0 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/30 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs text-sky-950 dark:text-sky-200">
+              محادثة المعلم الذكي محمية برمز الهوية وحدود الاستخدام العادل. سجّل دخولك لبدء
+              المحادثة.
+            </p>
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>تسجيل الدخول</span>
+            </button>
+          </div>
+        )}
+
         {/* Conversation Body */}
         <div className="flex-1 p-5 space-y-4 overflow-y-auto max-h-[480px]">
           {messages.length === 0 ? (
@@ -357,26 +396,28 @@ export function AiTutorPanel({
               <div className="flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
+                  disabled={!isAuthenticated}
                   onClick={() =>
                     void sendMessage(
                       `اشرح لي الفكرة الأساسية في درس "${activeLesson?.titleAr}" بأسلوب مبسط مع مثال.`,
                       'explain'
                     )
                   }
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                   <span>اشرح لي الفكرة الأساسية</span>
                 </button>
                 <button
                   type="button"
+                  disabled={!isAuthenticated}
                   onClick={() =>
                     void sendMessage(
                       `قدّم لي مسألة نموذجية على درس "${activeLesson?.titleAr}" وحلها خطوة بخطوة.`,
                       'solve'
                     )
                   }
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                 >
                   <Calculator className="w-3.5 h-3.5" />
                   <span>حل مسألة خطوة بخطوة</span>
@@ -431,12 +472,16 @@ export function AiTutorPanel({
             aria-label="اكتب سؤالك للمعلم الذكي"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="اكتب سؤالك أو نص المسألة هنا..."
+            placeholder={
+              isAuthenticated
+                ? 'اكتب سؤالك أو نص المسألة هنا...'
+                : 'سجّل دخولك أولاً لطرح سؤال...'
+            }
             className="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-2 focus:outline-sky-700"
           />
           <button
             type="submit"
-            disabled={loadingChat || input.trim().length < 2}
+            disabled={loadingChat || !isAuthenticated || input.trim().length < 2}
             aria-label="إرسال السؤال"
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 transition-colors shrink-0 cursor-pointer"
           >

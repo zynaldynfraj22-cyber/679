@@ -1,41 +1,24 @@
 import type {
-  AssessmentResult,
   ExamAttempt,
   Lesson,
   LessonProgress,
-  Question,
+  PublicQuestion,
   QuestionFilter,
   Subject,
   SubjectId,
   Unit,
 } from '../types/curriculum';
-import {
-  filterBankQuestions,
-  gradeBankAssessment,
-  gradeSingleBankQuestion,
-  normalizeTextToken,
-} from './questionEngine';
+import { filterBankQuestions, normalizeTextToken } from './questionEngine';
 
 export function normalizeAnswer(raw: string): string {
   return normalizeTextToken(raw);
 }
 
-export function filterQuestions(
-  questions: Question[],
+export function filterQuestions<T extends PublicQuestion>(
+  questions: T[],
   filter: QuestionFilter
-): Question[] {
+): T[] {
   return filterBankQuestions(questions, filter);
-}
-
-export function isQuestionAnswerCorrect(question: Question, rawAnswer: string): boolean {
-  return gradeSingleBankQuestion(question, rawAnswer).isCorrect;
-}
-
-export function gradeAssessment(
-  questions: Question[],
-  userAnswers: Record<string, string>
-): AssessmentResult {
-  return gradeBankAssessment(questions, userAnswers);
 }
 
 export interface SubjectProgressSummary {

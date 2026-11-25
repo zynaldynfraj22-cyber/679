@@ -1,6 +1,11 @@
 import type { Lesson } from '../types/curriculum';
+import { applyLessonExpansions } from './expansions/applyLessonExpansion';
+import { PHYSICS_EXPANSIONS } from './expansions/physicsExpansions';
+import { CHEMISTRY_EXPANSIONS } from './expansions/chemistryExpansions';
+import { BIOLOGY_EXPANSIONS } from './expansions/biologyExpansions';
+import { MATH_EXPANSIONS } from './expansions/mathExpansions';
 
-export const LESSONS_PART_3: Lesson[] = [
+const RAW_LESSONS_PART_3: Lesson[] = [
   // ================= PHYSICS: 4 NEW PRIORITY LESSONS =================
   {
     id: 'phys-u6-l1',
@@ -1465,3 +1470,10 @@ export const LESSONS_PART_3: Lesson[] = [
     isPublished: true,
   },
 ];
+
+export const LESSONS_PART_3: Lesson[] = applyLessonExpansions(RAW_LESSONS_PART_3, {
+  ...PHYSICS_EXPANSIONS,
+  ...CHEMISTRY_EXPANSIONS,
+  ...BIOLOGY_EXPANSIONS,
+  ...MATH_EXPANSIONS,
+});

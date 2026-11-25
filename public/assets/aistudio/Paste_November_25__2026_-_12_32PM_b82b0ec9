@@ -1,0 +1,1561 @@
+# STUDY CORE — PHASE 4
+# COMPREHENSIVE LEARNING, ADVANCED QUESTION BANK & INTELLIGENT EXAMINATION ENGINE
+
+## PROJECT IDENTITY
+
+Application: STUDY CORE  
+Country: Sultanate of Oman  
+Academic Year: 2026–2027  
+Grade: 12  
+Track: Scientific  
+Interface Language: Arabic  
+Layout Direction: RTL  
+
+You are continuing development of the existing STUDY CORE application.
+
+Your mission is to transform STUDY CORE into a comprehensive educational and examination platform where students can fully understand every lesson, practice every important concept, and prepare for examinations through extensive, carefully organized question banks.
+
+This is an existing project.
+
+Do not create a new application.
+
+Do not rebuild the current system from scratch.
+
+Work directly with the existing source code, database structure, components, and design system.
+
+==================================================
+1. EXISTING PROJECT ARCHITECTURE
+==================================================
+
+The existing application uses:
+
+- React 19
+- TypeScript
+- Tailwind CSS v4
+- Express
+- Node.js
+- Firebase Authentication
+- Cloud Firestore
+- Gemini API through @google/genai
+- Vite
+- Zod
+
+Existing subjects:
+
+1. Physics
+2. Chemistry
+3. Biology
+4. Advanced Mathematics
+
+Important existing files include:
+
+- package.json
+- server.ts
+- firestore.rules
+- firebase-blueprint.json
+- firebase-applet-config.json
+- security_spec.md
+- src/App.tsx
+- src/types/curriculum.ts
+- src/data/subjectsAndUnits.ts
+- src/data/sourcesAndCatalog.ts
+- src/data/lessonsPart1.ts
+- src/data/lessonsPart2.ts
+- src/data/lessonsPart3.ts
+- src/data/questionBank.ts
+- src/data/questionBankExtended.ts
+- src/components/QuestionBankView.tsx
+- src/components/AdminCmsView.tsx
+- src/components/AiTutorPanel.tsx
+- src/components/LessonReader.tsx
+- src/services/firestoreService.ts
+- src/utils/questionEngine.ts
+- src/utils/coverageEngine.ts
+- src/utils/curriculumEngine.ts
+
+First inspect the actual imported project.
+
+Verify which of these files exist and whether previous Phase 3.5 security repairs have already been implemented.
+
+Do not assume that previously proposed repairs were completed.
+
+==================================================
+2. CRITICAL PRESERVATION RULES
+==================================================
+
+Before making changes:
+
+1. Inspect the entire existing project.
+2. Understand the existing data structures.
+3. Identify all reusable components.
+4. Inspect current Firebase integration.
+5. Inspect current Gemini endpoints.
+6. Inspect existing lesson content.
+7. Inspect both question banks.
+8. Inspect current tests.
+9. Back up files before major modifications.
+
+Never:
+
+- Delete existing lessons.
+- Delete existing questions.
+- Reset the database.
+- Delete student accounts.
+- Delete student progress.
+- Delete examination history.
+- Replace working components unnecessarily.
+- Replace existing styles with a generic template.
+- Fabricate educational content.
+- Fabricate official examination questions.
+- Claim features are working without testing them.
+
+Preserve the existing visual identity and all functioning previous features.
+
+==================================================
+3. SECURITY READINESS REQUIREMENTS
+==================================================
+
+Before implementing student examinations, verify:
+
+- Firebase ID token verification on protected server routes.
+- Administrator authorization.
+- Public question data separated from private answer keys.
+- Server-side examination grading.
+- Firestore protection against fabricated scores.
+- Private answer collections inaccessible to students.
+- Gemini API rate limiting.
+- Safe server-side API key management.
+
+If any critical security requirement is missing, implement the necessary repair before using that feature.
+
+### Answer protection
+
+Public question records may contain:
+
+- Question text.
+- Answer choices.
+- Public diagrams.
+- Marks.
+- Difficulty.
+- Question type.
+- Lesson references.
+
+Private server-only answer records may contain:
+
+- Correct answers.
+- Answer keys.
+- Detailed explanations.
+- Solution steps.
+- Numerical tolerances.
+- Grading rubrics.
+
+Students must never receive private answer keys before the appropriate submission event.
+
+All final examination marks must be calculated by the server.
+
+Do not trust scores or grading results submitted by the browser.
+
+Do not publish new Firebase security rules automatically without testing and administrative approval.
+
+==================================================
+4. COMPLETE CURRICULUM AND LESSON COVERAGE
+==================================================
+
+The four scientific subjects must be organized into:
+
+Academic Year → Semester → Subject → Unit → Lesson → Learning Objectives.
+
+Verify the current curriculum structure against official Omani educational references.
+
+The existing curriculum data must be inspected, not blindly accepted.
+
+Identify:
+
+- Missing units.
+- Missing lessons.
+- Duplicate lessons.
+- Incomplete lessons.
+- Outdated lessons.
+- Learning objectives without coverage.
+- Lessons linked to incorrect units.
+
+Do not invent official curriculum lesson names or objectives.
+
+Preserve existing verified content.
+
+==================================================
+5. MAJOR EDUCATIONAL PROBLEM — INSUFFICIENT LESSON CONTENT
+==================================================
+
+THIS REQUIREMENT IS CRITICAL.
+
+The current platform has a serious educational content problem.
+
+Many existing lessons contain approximately:
+
+- One short explanation.
+- One solved example.
+- Two exercises.
+- One lesson question.
+
+This is NOT sufficient to cover all the information and learning objectives of a complete Grade 12 scientific lesson.
+
+A lesson must not be considered complete simply because these sections exist.
+
+STUDY CORE must provide comprehensive learning coverage.
+
+The objective is not to increase content quantity artificially.
+
+The objective is to teach the student all important concepts, explain them properly, provide sufficient examples, and offer enough practice to prepare for examinations.
+
+Every existing and newly created lesson must be audited and improved.
+
+==================================================
+6. COMPREHENSIVE LESSON EXPLANATIONS
+==================================================
+
+Every lesson must contain a comprehensive and structured explanation.
+
+Break each lesson into meaningful sections according to its actual concepts and learning objectives.
+
+For every major concept, provide:
+
+1. Concept introduction.
+2. Clear definition.
+3. Detailed explanation.
+4. Scientific reasoning.
+5. Relevant laws and principles.
+6. Mathematical relationships where applicable.
+7. Step-by-step derivations where necessary.
+8. Relationship to other concepts.
+9. Practical or scientific applications.
+10. Important observations.
+11. Common misconceptions.
+12. Examination-related notes.
+
+Do not combine unrelated topics into one short paragraph.
+
+Do not repeat the same information to increase word count.
+
+The explanation must be suitable for a Grade 12 student and must cover the actual learning requirements of the lesson.
+
+### Physics requirements
+
+Explain:
+
+- Physical concepts.
+- Laws and principles.
+- Equations.
+- Relationships between variables.
+- Units.
+- Derivations.
+- Graphs.
+- Physical applications.
+- Calculation methods.
+
+### Chemistry requirements
+
+Explain:
+
+- Chemical concepts.
+- Chemical reactions.
+- Equations.
+- Reaction conditions.
+- Chemical calculations.
+- Relationships between concepts.
+- Important terminology.
+
+### Biology requirements
+
+Explain:
+
+- Biological structures.
+- Processes.
+- Mechanisms.
+- Sequences of events.
+- Comparisons.
+- Scientific terminology.
+- Diagrams and their interpretation.
+
+### Advanced Mathematics requirements
+
+Explain:
+
+- Mathematical definitions.
+- Laws and identities.
+- Formula derivations where relevant.
+- Solving methods.
+- Different problem-solving strategies.
+- Restrictions and domains.
+- Step-by-step calculations.
+- Graphical interpretation.
+
+==================================================
+7. EXPANDED SOLVED EXAMPLES
+==================================================
+
+One solved example is insufficient for a complete lesson.
+
+Provide at least FOUR distinct solved examples per lesson as an initial target.
+
+Increase the number when a lesson contains multiple important concepts, formulas, or calculation techniques.
+
+Example distribution:
+
+1. Basic understanding.
+2. Direct application.
+3. Intermediate problem solving.
+4. Advanced or examination-style application.
+
+Every example must include:
+
+- Complete question.
+- Required information.
+- Relevant concept or law.
+- Solution steps.
+- Mathematical or scientific reasoning.
+- Final answer.
+- Explanation of why the method works.
+- Common mistakes.
+
+For numerical examples, verify calculations and units.
+
+Do not repeat the same example with slightly modified numbers unless it teaches a genuinely different skill.
+
+==================================================
+8. EXPANDED PRACTICE EXERCISES
+==================================================
+
+Two exercises per lesson are insufficient.
+
+Provide at least TEN distinct exercises per lesson as an initial target.
+
+Increase the number where necessary according to the lesson's complexity and learning objectives.
+
+Distribute exercises across:
+
+- Basic understanding.
+- Definitions and concepts.
+- Direct application.
+- Intermediate problem solving.
+- Advanced application.
+- Scientific reasoning.
+- Examination-style practice.
+
+Each exercise must have:
+
+- Question.
+- Related lesson objective.
+- Difficulty.
+- Answer.
+- Detailed explanation or solution.
+- Marks where applicable.
+
+Do not generate repetitive exercises merely to reach the target.
+
+Each exercise must test a meaningful skill or concept.
+
+==================================================
+9. LEARNING OBJECTIVE COVERAGE MATRIX
+==================================================
+
+Build a comprehensive learning objective coverage system.
+
+For every lesson, connect:
+
+Learning Objective → Explanation → Summary → Solved Examples → Exercises → Question Bank → Assessment.
+
+For each objective, display:
+
+- Is the concept explained?
+- Is there a detailed summary?
+- Are relevant examples available?
+- Are sufficient exercises available?
+- Are approved examination questions available?
+- Is the objective assessed in a lesson test?
+
+Detect missing coverage automatically.
+
+An important learning objective must not be considered complete without appropriate explanation and assessment.
+
+Create a coverage matrix inside the administrator dashboard.
+
+Distinguish actual content from planned content.
+
+Do not report a lesson as complete just because it has non-empty fields.
+
+==================================================
+10. LESSON CONTENT GENERATION AND IMPROVEMENT
+==================================================
+
+Use Gemini to assist with improving existing lessons.
+
+The administrator must be able to select:
+
+- Subject.
+- Semester.
+- Unit.
+- Lesson.
+- Learning objective.
+- Content section to expand.
+
+Generation options:
+
+- Expand explanation.
+- Add missing concepts.
+- Add solved examples.
+- Create exercises.
+- Improve summaries.
+- Add scientific comparisons.
+- Explain difficult formulas.
+- Identify missing objectives.
+- Suggest additional teaching methods.
+
+Before generating new content:
+
+1. Inspect existing lesson content.
+2. Identify missing concepts.
+3. Check the existing source references.
+4. Determine whether the target objective already has adequate content.
+5. Generate only the missing material.
+
+Never overwrite valid existing content automatically.
+
+All new AI-generated educational material must be marked as AI-generated and enter an appropriate review process.
+
+Use official Omani curriculum resources as primary references.
+
+Use supplementary sources only when their relevance and reliability are established.
+
+Do not invent textbook quotations or claim generated content is official.
+
+Respect copyright and source permissions.
+
+==================================================
+11. COMPREHENSIVE SUMMARY SYSTEM
+==================================================
+
+Every lesson must support:
+
+- Detailed summary.
+- Quick revision summary.
+- Important definitions.
+- Important formulas.
+- Important laws.
+- Key comparisons.
+- Important tables.
+- Common mistakes.
+- Important exam notes.
+
+Summaries must cover all the important lesson objectives.
+
+Do not turn a long lesson into a summary that omits major concepts.
+
+Allow the student to switch between detailed and quick revision modes.
+
+==================================================
+12. ADVANCED QUESTION BANK DATA MODEL
+==================================================
+
+Inspect and preserve the existing question model.
+
+Each question must be organized by:
+
+Academic Year
+→ Semester
+→ Subject
+→ Unit
+→ Lesson
+→ Learning Objective
+→ Difficulty
+→ Question Type.
+
+Every question should contain:
+
+- Unique ID.
+- Question title.
+- Question content.
+- Question type.
+- Subject ID.
+- Unit ID.
+- Lesson ID.
+- Learning objective ID.
+- Difficulty.
+- Marks.
+- Estimated solving time.
+- Origin.
+- Source reference.
+- Verification status.
+- Creation date.
+- Last review date.
+- Version.
+
+Preserve compatible existing fields.
+
+Avoid unnecessary schema duplication.
+
+==================================================
+13. FIVE DIFFICULTY LEVELS
+==================================================
+
+Preserve the existing difficulty identifiers:
+
+LEVEL 1 — foundation
+Arabic label: تأسيسي
+
+LEVEL 2 — basic_application
+Arabic label: تطبيق أساسي
+
+LEVEL 3 — intermediate
+Arabic label: متوسط
+
+LEVEL 4 — advanced
+Arabic label: متقدم
+
+LEVEL 5 — olympiad
+Arabic label: تفكير عليا
+
+The final level should represent higher-order reasoning and challenge appropriate to the curriculum.
+
+Ensure all five levels work across:
+
+- Question storage.
+- Question filtering.
+- Student interfaces.
+- Admin interfaces.
+- Gemini generation.
+- Examination blueprints.
+- Analytics.
+- Firestore validation.
+
+Do not invent questions at a higher difficulty level merely by using difficult language.
+
+==================================================
+14. TWELVE QUESTION TYPES
+==================================================
+
+Preserve these question type identifiers:
+
+1. mcq
+2. multi_select
+3. true_false
+4. fill_blank
+5. short_answer
+6. numeric
+7. matching
+8. ordering
+9. scientific_explanation
+10. structured_long
+11. diagram_interpretation
+12. data_graph_analysis
+
+Implement proper interfaces and grading logic for each type.
+
+### MCQ
+Single correct option.
+
+### Multi-select
+Several correct options with configurable scoring rules.
+
+### True or false
+Two-option answer.
+
+### Fill in the blanks
+One or more blanks with configured accepted answers.
+
+### Short answer
+Short written response.
+
+### Numeric
+Numerical answer, precision, tolerance, and optional units.
+
+### Matching
+Connect related pairs.
+
+### Ordering
+Place items in the correct order.
+
+### Scientific explanation
+Scientific reasoning and short explanations.
+
+### Structured long answer
+Extended answers with clear marking criteria.
+
+### Diagram interpretation
+Scientific diagram analysis.
+
+### Data and graph analysis
+Interpret graphs, tables, trends, and numerical data.
+
+Every question type must have a real answer interface, validation, grading method, and result display.
+
+Do not claim a question type is supported merely because it exists in TypeScript.
+
+==================================================
+15. QUESTION BANK COVERAGE TARGETS
+==================================================
+
+Create a dedicated question bank for every lesson.
+
+Initial target:
+
+At least TWENTY APPROVED, DISTINCT, REVIEWED questions per lesson.
+
+This is a starting target, not a final maximum.
+
+Increase the question count whenever necessary to adequately assess all important learning objectives.
+
+Distribute questions across five difficulty levels.
+
+Use the twelve available question types where appropriate.
+
+Do not force every question type into every lesson.
+
+Each question must:
+
+- Test a specific concept.
+- Connect to a learning objective.
+- Have suitable difficulty.
+- Have an answer or marking rubric.
+- Have an explanation or solution.
+- Have source or generation metadata.
+- Have a verification state.
+
+The target of twenty questions must not be met by duplicates, superficial wording changes, or incorrect material.
+
+Unreviewed questions must not be counted as approved questions.
+
+==================================================
+16. QUESTION ORIGINS AND VERIFICATION
+==================================================
+
+Use these origins:
+
+OFFICIAL_PAST_EXAM
+TEACHER_RESOURCE
+AI_GENERATED
+ADMIN_CREATED
+
+Use these verification statuses:
+
+PENDING_REVIEW
+APPROVED
+REJECTED
+NEEDS_CORRECTION
+OUTDATED
+
+Rules:
+
+- AI-generated questions begin as PENDING_REVIEW.
+- Official questions require verifiable original sources.
+- Teacher materials require attribution.
+- Unverified questions cannot be labeled official.
+- Rejected questions cannot be delivered to students.
+- Outdated questions must be excluded from active examinations.
+- Preserve question versions and review history.
+
+Never automatically approve generated questions.
+
+==================================================
+17. MERGE EXISTING QUESTION BANKS
+==================================================
+
+Inspect:
+
+src/data/questionBank.ts
+
+src/data/questionBankExtended.ts
+
+The previous code audit identified an extended question bank that was not fully connected to the student application.
+
+Recalculate actual counts from the current imported files.
+
+Perform:
+
+- Unique ID validation.
+- Duplicate detection.
+- Lesson link validation.
+- Learning objective validation.
+- Difficulty validation.
+- Question type validation.
+- Source checks.
+- Verification checks.
+
+Integrate all compatible records.
+
+Preserve valid questions.
+
+Mark uncertain legacy records for review.
+
+Do not assume that a published old question is scientifically verified.
+
+Do not delete original records during migration.
+
+==================================================
+18. GEMINI QUESTION GENERATION STUDIO
+==================================================
+
+Build an advanced question-generation studio inside the existing administrator dashboard.
+
+Use the existing Gemini API integration.
+
+The administrator must choose:
+
+- Subject.
+- Semester.
+- Unit.
+- Lesson.
+- Learning objective.
+- Question type.
+- Difficulty level.
+- Number of questions.
+- Marks.
+- Expected solving time.
+
+Provide generation modes:
+
+A. Quick Practice.
+B. Comprehensive Lesson Bank.
+C. Lesson Examination.
+D. Unit Revision.
+E. Advanced Problem Set.
+F. Examination-Style Practice.
+G. Critical Thinking.
+H. Mixed Difficulty.
+
+Gemini must use verified lesson content as context.
+
+Generate structured JSON containing:
+
+- Question text.
+- Options when relevant.
+- Correct answer.
+- Detailed solution.
+- Scientific explanation.
+- Learning objective.
+- Difficulty.
+- Question type.
+- Marks.
+- Expected time.
+- Source context.
+- AI generation metadata.
+
+Validate all outputs with Zod.
+
+Reject malformed responses.
+
+Prevent unsupported questions.
+
+Handle provider failures, timeouts, 429 responses, and 503 responses.
+
+All generated questions must enter PENDING_REVIEW.
+
+Gemini must not publish questions automatically.
+
+Keep API keys exclusively on the server.
+
+==================================================
+19. SCIENTIFIC AND MATHEMATICAL VALIDATION
+==================================================
+
+Validation requirements:
+
+PHYSICS:
+- Verify formulas.
+- Verify units.
+- Verify numerical calculations.
+- Check consistency of solution steps.
+- Check significant figures where required.
+- Verify physical reasoning.
+
+CHEMISTRY:
+- Verify chemical symbols.
+- Balance chemical equations.
+- Verify chemical calculations.
+- Check reaction conditions.
+- Validate units and terminology.
+
+BIOLOGY:
+- Validate scientific terminology.
+- Check biological sequences.
+- Verify mechanisms.
+- Check diagrams and labels.
+- Detect misleading statements.
+
+ADVANCED MATHEMATICS:
+- Verify mathematical expressions.
+- Check calculations.
+- Verify final answers.
+- Check domains and restrictions.
+- Validate equivalent mathematical answers.
+
+Use deterministic calculation methods where practical.
+
+Do not treat Gemini's own validation as proof of correctness.
+
+Uncertain questions must remain under review.
+
+==================================================
+20. DUPLICATE QUESTION DETECTION
+==================================================
+
+Detect:
+
+- Exact duplicates.
+- Similar question wording.
+- Repeated answer structures.
+- Repeated generated questions.
+
+Use normalization and similarity checks.
+
+Flag possible duplicates for administrator review.
+
+Never automatically delete similar questions.
+
+Preserve meaningful variations that test different concepts or reasoning skills.
+
+==================================================
+21. ADMINISTRATIVE QUESTION MANAGEMENT
+==================================================
+
+Extend the existing Admin CMS.
+
+Add:
+
+- Question library.
+- Question editor.
+- Gemini generation studio.
+- Review queue.
+- Duplicate detection.
+- Examination builder.
+- Question analytics.
+- Content coverage dashboard.
+
+Administrators must be able to:
+
+- Create questions.
+- Edit questions.
+- Preview questions.
+- Approve questions.
+- Reject questions.
+- Request corrections.
+- Attach sources.
+- Change difficulty.
+- Change learning objectives.
+- Review answer keys.
+- Configure marks.
+- Configure grading rubrics.
+- Track revisions.
+- Archive outdated questions.
+
+Use server-side administrator authorization.
+
+Keep the existing admin interface design.
+
+==================================================
+22. STUDENT PRACTICE EXPERIENCE
+==================================================
+
+Inside every lesson, create a dedicated question bank section.
+
+Students should be able to:
+
+- Choose practice mode.
+- Choose difficulty.
+- Choose question type.
+- Practice one question at a time.
+- Navigate questions.
+- Save questions.
+- Flag difficult questions.
+- Submit answers.
+- Receive appropriate feedback.
+- Read full explanations.
+- Retry incorrect questions.
+- Review previous attempts.
+- Practice only weak topics.
+
+Display:
+
+- Questions answered.
+- Correct answers.
+- Incorrect answers.
+- Accuracy percentage.
+- Time spent.
+- Difficulty distribution.
+- Weak learning objectives.
+
+All statistics must come from real records.
+
+==================================================
+23. SMART ADAPTIVE PRACTICE
+==================================================
+
+Implement an explainable adaptive learning system.
+
+Use real student performance.
+
+When a student repeatedly answers easy questions correctly:
+
+Recommend more challenging questions.
+
+When a student repeatedly fails a particular learning objective:
+
+Recommend targeted practice and a clearer explanation.
+
+When a student has not practiced a lesson:
+
+Recommend a short diagnostic session.
+
+When a student performs well:
+
+Recommend advanced questions and unfamiliar applications.
+
+Track:
+
+- Accuracy.
+- Number of attempts.
+- Repeated errors.
+- Learning objective performance.
+- Difficulty mastered.
+- Time spent.
+
+Do not interpret a lack of attempts as failure.
+
+Provide transparent recommendations.
+
+==================================================
+24. LESSON TESTS
+==================================================
+
+Each lesson must have a dedicated comprehensive test.
+
+Initial target:
+
+10–15 distinct approved questions per test.
+
+Cover multiple learning objectives.
+
+Include an appropriate distribution of:
+
+- Knowledge.
+- Understanding.
+- Application.
+- Numerical or analytical reasoning.
+- Advanced thinking.
+
+Use the approved lesson question bank.
+
+Randomize question selection where sufficient questions are available.
+
+Do not repeatedly present the same questions in every attempt when suitable alternatives exist.
+
+Allow administrators to configure:
+
+- Duration.
+- Total marks.
+- Number of questions.
+- Difficulty distribution.
+- Question type distribution.
+- Passing mark.
+
+==================================================
+25. UNIT AND SEMESTER EXAMINATIONS
+==================================================
+
+Implement:
+
+1. Lesson tests.
+2. Unit examinations.
+3. Semester examinations.
+4. Comprehensive subject examinations.
+5. Mock final examinations.
+6. Custom practice tests.
+
+Every examination must have a configurable blueprint.
+
+Include:
+
+- Covered units.
+- Covered lessons.
+- Learning objectives.
+- Question count.
+- Total marks.
+- Duration.
+- Difficulty distribution.
+- Question type distribution.
+- Passing mark.
+- Randomization settings.
+
+Use approved questions only.
+
+Use official Ministry examination structures only when verified official documents support them.
+
+Otherwise label the test as a custom practice examination.
+
+==================================================
+26. EXAMINATION EXPERIENCE
+==================================================
+
+Build a complete examination interface.
+
+Include:
+
+- Instructions.
+- Countdown timer.
+- Question navigation.
+- Question numbering.
+- Answer selection.
+- Saving answers.
+- Flagging questions.
+- Progress indicator.
+- Unanswered question count.
+- Submission confirmation.
+
+Support safe persistence after refresh or temporary connectivity loss.
+
+Use server-authoritative examination timing.
+
+Never depend only on a browser timer.
+
+Do not allow modification of submitted examinations.
+
+Do not reveal answer keys before submission.
+
+==================================================
+27. AUTOMATIC AND MANUAL GRADING
+==================================================
+
+Automatic grading must support:
+
+- MCQ.
+- Multiple select.
+- True or false.
+- Matching.
+- Ordering.
+- Configured fill-in-the-blank.
+- Numerical problems.
+
+Numerical grading must support:
+
+- Arabic-Indic numerals.
+- Western numerals.
+- Configured decimal separators.
+- Tolerances.
+- Required units.
+- Appropriate precision.
+
+For descriptive and structured answers:
+
+- Use marking rubrics.
+- Support manual examiner grading.
+- Allow Gemini to suggest feedback.
+- Require appropriate review for final grades.
+
+All authoritative scores must be calculated by the server.
+
+Never trust client-provided scores.
+
+Never execute unrestricted eval() on mathematical expressions.
+
+==================================================
+28. RESULTS AND PERFORMANCE ANALYTICS
+==================================================
+
+Create comprehensive results pages.
+
+Display:
+
+- Earned marks.
+- Total marks.
+- Percentage.
+- Correct questions.
+- Incorrect questions.
+- Unanswered questions.
+- Time taken.
+- Performance by difficulty.
+- Performance by question type.
+- Performance by learning objective.
+- Strong subjects.
+- Weak topics.
+
+Provide:
+
+- Review answers.
+- Read full explanations.
+- Retry incorrect questions.
+- Practice weak topics.
+- Save questions.
+- Return to the relevant lesson.
+
+Preserve examination history.
+
+Students may access only their own records.
+
+==================================================
+29. COMPREHENSIVE LESSON CONTENT DASHBOARD
+==================================================
+
+Create an administrative dashboard that measures actual educational completeness.
+
+For every lesson, display:
+
+- Explanation coverage.
+- Learning objective coverage.
+- Number of detailed examples.
+- Number of exercises.
+- Approved question count.
+- Pending question count.
+- Question difficulty coverage.
+- Assessment coverage.
+- Source coverage.
+- Content verification status.
+
+Highlight:
+
+- Lessons with short explanations.
+- Lessons with too few examples.
+- Lessons with too few exercises.
+- Lessons with insufficient question banks.
+- Learning objectives without coverage.
+- Lessons needing scientific review.
+- Lessons with outdated information.
+
+Separate:
+
+ACTUAL CONTENT COUNT
+
+from:
+
+PLANNED CONTENT TARGET.
+
+Never fabricate coverage percentages.
+
+A lesson must not be marked COMPLETE just because all its database fields are non-empty.
+
+Use actual learning objective coverage and approved content.
+
+==================================================
+30. QUESTION COVERAGE TARGETS
+==================================================
+
+Initial planning targets:
+
+- At least 4 solved examples per lesson.
+- At least 10 practice exercises per lesson.
+- At least 20 approved distinct question bank questions per lesson.
+- At least 10–15 approved questions for a comprehensive lesson test.
+
+These are initial targets, not strict maximums.
+
+Increase targets where the number of learning objectives or lesson complexity requires more content.
+
+Do not force irrelevant question types into a lesson.
+
+Do not generate duplicates to reach numerical targets.
+
+Only reviewed and approved questions count toward approved question totals.
+
+Clearly distinguish pending AI-generated questions from approved content.
+
+==================================================
+31. DATABASE AND FIREBASE
+==================================================
+
+Extend the existing Firestore model safely.
+
+Potential logical collections:
+
+- questionBank
+- questionAnswerKeys
+- questionReviews
+- questionVersions
+- examinationBlueprints
+- examinations
+- examinationAttempts
+- studentAnswers
+- savedQuestions
+- practiceSessions
+- studentWeaknesses
+- questionCoverageTargets
+- lessonContentReviews
+
+Adapt these to the real existing architecture.
+
+Avoid unnecessary duplicate collections.
+
+Use:
+
+- Server-side pagination.
+- Appropriate indexes.
+- Secure owner-based access.
+- Restricted administrative writes.
+- Private answer separation.
+- Server-side grading.
+- Safe migration procedures.
+
+Preserve all previous records.
+
+Create dry-run migration support.
+
+Do not run destructive production migrations without explicit administrator approval.
+
+If live credentials are unavailable, use local fixtures or Firebase Emulator where possible.
+
+Clearly report when real Firebase testing has not occurred.
+
+==================================================
+32. ARABIC AND RTL USER EXPERIENCE
+==================================================
+
+All student-facing interfaces must be Arabic.
+
+Preserve:
+
+- Right-to-left layout.
+- Existing Arabic typography.
+- Existing visual identity.
+- Existing themes.
+- Responsive design.
+- Light and dark modes.
+- Consistent buttons and cards.
+- Accessible colors.
+- Clear loading and error states.
+
+Support:
+
+- Arabic and Western numerals.
+- Mathematical formulas.
+- Chemical equations.
+- Scientific symbols.
+- Tables.
+- Images and diagrams.
+- Graphs.
+- Long mathematical expressions.
+
+Render scientific notation correctly without reversing logical mathematical order.
+
+Avoid clutter and excessive animations.
+
+==================================================
+33. PERFORMANCE
+==================================================
+
+The question bank must support thousands of records.
+
+Implement:
+
+- Server-side filtering.
+- Pagination.
+- Lazy loading.
+- Efficient Firestore indexes.
+- Controlled Gemini generation.
+- Rate limiting.
+- Caching where appropriate.
+- Safe request retries.
+
+Never load the entire question database into the browser.
+
+Generate questions in manageable batches.
+
+Do not claim asynchronous background processing unless a real supported mechanism is implemented.
+
+==================================================
+34. TESTING AND QUALITY ASSURANCE
+==================================================
+
+Test all major functionality.
+
+### Question tests
+- Data validation.
+- Duplicate detection.
+- ID uniqueness.
+- Question filtering.
+- Difficulty filtering.
+- Question type rendering.
+- Learning objective links.
+- Source verification.
+
+### Lesson content tests
+- Explanation completeness checks.
+- Example counts.
+- Exercise counts.
+- Learning objective coverage.
+- Missing concept detection.
+- Approval status.
+
+### Grading tests
+- Correct answers.
+- Incorrect answers.
+- Arabic numerals.
+- Western numerals.
+- Numerical tolerances.
+- Required units.
+- Multiple-select scoring.
+- Manual grading.
+
+### Examination tests
+- Randomization.
+- Timing.
+- Answer persistence.
+- Submission.
+- Server-side scores.
+- Historical attempts.
+
+### Security tests
+- Student authorization.
+- Administrator authorization.
+- Private answer access.
+- Student data isolation.
+- Fabricated score prevention.
+- Gemini endpoint protection.
+
+### Gemini tests
+- Structured JSON validation.
+- Invalid outputs.
+- Timeouts.
+- Rate limits.
+- 429 errors.
+- 503 errors.
+- Missing API key.
+
+Use existing test dependencies wherever possible.
+
+Add or correct the test script in package.json.
+
+Run:
+
+npm run lint
+npm run build
+npm test
+
+Test the actual browser application if browser testing is available.
+
+Check:
+
+- Desktop 1440×900.
+- Mobile 390×844.
+- Arabic RTL.
+- Dark mode.
+- Console errors.
+- Network errors.
+
+Preserve previous passing tests.
+
+Do not invent test results.
+
+==================================================
+35. IMPLEMENTATION PLAN
+==================================================
+
+Execute Phase 4 in the following controlled subphases.
+
+SUBPHASE 4A — QUESTION BANK AUDIT AND INTEGRATION
+
+- Inspect both existing question banks.
+- Count actual questions.
+- Detect duplicates.
+- Validate lesson links.
+- Validate difficulty and question types.
+- Inspect source and verification metadata.
+- Design the final question data model.
+- Integrate valid legacy questions safely.
+- Protect private answers.
+- Produce an accurate migration report.
+
+SUBPHASE 4B — COMPREHENSIVE LESSON COVERAGE
+
+- Audit all existing lessons.
+- Identify missing learning objectives.
+- Expand incomplete explanations.
+- Add detailed solved examples.
+- Add sufficient practice exercises.
+- Improve summaries.
+- Build the lesson coverage matrix.
+- Preserve existing valid material.
+- Create content review workflows.
+
+SUBPHASE 4C — ADMINISTRATIVE QUESTION MANAGEMENT
+
+- Build the question library.
+- Build the editor.
+- Build the administrative review queue.
+- Add filtering and searching.
+- Add source management.
+- Add version history.
+- Add approval and rejection workflows.
+
+SUBPHASE 4D — GEMINI GENERATION STUDIO
+
+- Generate lesson questions.
+- Expand explanations.
+- Generate solved examples.
+- Generate exercises.
+- Generate question banks.
+- Validate JSON.
+- Add scientific validation.
+- Require administrative review.
+
+SUBPHASE 4E — STUDENT PRACTICE ENGINE
+
+- Integrate lesson-specific question banks.
+- Implement all supported answer types.
+- Add practice sessions.
+- Add explanations.
+- Add retry functionality.
+- Add saved questions.
+- Build adaptive recommendations.
+
+SUBPHASE 4F — EXAMINATION ENGINE
+
+- Build lesson tests.
+- Build unit tests.
+- Build semester tests.
+- Build comprehensive examinations.
+- Build examination blueprints.
+- Implement timers.
+- Implement answer saving.
+- Implement secure submission.
+
+SUBPHASE 4G — GRADING AND ANALYTICS
+
+- Server-side grading.
+- Manual grading.
+- Detailed results.
+- Performance analysis.
+- Weakness detection.
+- Revision recommendations.
+
+SUBPHASE 4H — COVERAGE DASHBOARDS AND FINAL QA
+
+- Lesson content coverage.
+- Question coverage.
+- Learning objective coverage.
+- Source verification analytics.
+- Complete browser testing.
+- Security checks.
+- Build verification.
+- Final documentation.
+
+==================================================
+36. EXECUTION CONTROL AND CREDIT MANAGEMENT
+==================================================
+
+Do not attempt to implement the entire phase in one enormous untested operation.
+
+Work on one subphase at a time.
+
+For each subphase:
+
+1. Inspect relevant files.
+2. Identify dependencies.
+3. Implement changes.
+4. Run relevant tests.
+5. Fix discovered regressions.
+6. Preserve existing working features.
+7. Record modified files.
+8. Create a continuation report.
+
+Do not restart the project between subphases.
+
+Do not repeat completed implementation work.
+
+If context or execution limits are reached:
+
+- Save existing changes.
+- Record the exact completed subphase.
+- Record all modified files.
+- Record tests executed.
+- Record remaining work.
+- Provide the precise next step.
+
+Do not claim that all of Phase 4 is complete when only some subphases have been implemented.
+
+### Initial execution instruction
+
+Begin with SUBPHASE 4A ONLY.
+
+Complete its inspection, implementation, and testing.
+
+Then stop and provide a detailed Arabic progress report.
+
+Do not start 4B until the current subphase is verified.
+
+==================================================
+37. FINAL DELIVERABLES
+==================================================
+
+At the completion of Phase 4, deliver:
+
+1. Complete centralized question bank.
+2. Integrated legacy questions.
+3. All five difficulty levels.
+4. All twelve question types.
+5. Comprehensive lesson explanations.
+6. Expanded solved examples.
+7. Expanded exercises.
+8. Learning objective coverage matrix.
+9. Gemini question-generation studio.
+10. Administrative review system.
+11. Scientific validation.
+12. Duplicate detection.
+13. Lesson-specific practice.
+14. Adaptive practice.
+15. Lesson examinations.
+16. Unit examinations.
+17. Semester examinations.
+18. Comprehensive mock examinations.
+19. Automatic and manual grading.
+20. Detailed examination results.
+21. Student performance analytics.
+22. Question coverage dashboard.
+23. Lesson completeness dashboard.
+24. Updated database model.
+25. Tested security rules.
+26. Automated tests.
+27. Arabic technical documentation.
+
+The final Arabic implementation report must clearly distinguish:
+
+- Features implemented.
+- Features actually tested.
+- Successful tests.
+- Failed tests.
+- Features requiring credentials.
+- Features requiring manual configuration.
+- Content requiring scientific review.
+- Missing educational resources.
+- Remaining development work.
+
+Never fabricate question counts, approved content counts, curriculum coverage, test results, or successful external API calls.
+
+==================================================
+FINAL DIRECTIVE
+==================================================
+
+STUDY CORE must become a comprehensive learning and examination platform.
+
+Students must not encounter lessons that contain only one short explanation, one example, two exercises, and one question.
+
+Every lesson must offer meaningful explanations, several solved examples, sufficient practice exercises, and a comprehensive question bank that covers its learning objectives.
+
+The platform must prioritize:
+
+1. Educational completeness.
+2. Scientific accuracy.
+3. Examination quality.
+4. Question diversity.
+5. Student privacy.
+6. Examination integrity.
+7. Reliable data persistence.
+8. Maintainable architecture.
+9. Premium Arabic RTL experience.
+
+Work with the actual existing project.
+
+Preserve all previous functionality.
+
+Do not generate filler content.
+
+Do not invent official materials.
+
+Start by auditing the current project and executing SUBPHASE 4A.

@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   filterQuestions,
-  gradeAssessment,
   computeSubjectProgress,
   computeOverallDashboardMetrics,
   normalizeAnswer,
   sanitizeUserNotes,
   normalizeLessonStandard,
 } from './curriculumEngine';
+import { gradeBankAssessment } from '../../server/gradingEngine';
+import { getAllServerQuestions } from '../../server/questionStore';
 import {
   classifyGeminiError,
   isTransientGeminiError,
@@ -43,6 +44,7 @@ const sampleQuestions: Question[] = [
     correctAnswer: 'N/C',
     explanationAr: 'شدة المجال الكهربائي تساوي القوة مقسومة على الشحنة N/C.',
     marks: 2,
+    verificationStatus: 'APPROVED',
     isPublished: true,
   },
   {
@@ -58,6 +60,7 @@ const sampleQuestions: Question[] = [
     numericTolerance: 0.05,
     explanationAr: 'E = F / q = 10 / 2 = 5 N/C.',
     marks: 3,
+    verificationStatus: 'APPROVED',
     isPublished: true,
   },
   {
@@ -72,6 +75,7 @@ const sampleQuestions: Question[] = [
     correctAnswer: 'لا يتأثر',
     explanationAr: 'عند تساوي عدد مولات الغازات في الطرفين لا ينزاح الاتزان بتغير الضغط.',
     marks: 2,
+    verificationStatus: 'APPROVED',
     isPublished: true,
   },
 ];
@@ -97,8 +101,8 @@ test('filterQuestions filters by subject, difficulty, and search query', () => {
   assert.equal(searched[0].id, 'q3');
 });
 
-test('gradeAssessment scores MCQ, Arabic-Indic numeric, and short answers accurately', () => {
-  const result = gradeAssessment(sampleQuestions, {
+test('gradeBankAssessment scores MCQ, Arabic-Indic numeric, and short answers accurately on server', () => {
+  const result = gradeBankAssessment(sampleQuestions, {
     q1: 'N/C',
     q2: '٥',
     q3: 'يتأثر',
@@ -294,7 +298,8 @@ test('Oman Grade 12 preloaded bundle has 34 units, 40 complete lessons, and 147 
   assert.equal(OMAN_UNITS.length, 34);
   assert.equal(PRELOADED_LESSONS.length, 40);
   assert.equal(OFFICIAL_CURRICULUM_CATALOG.length, 147);
-  assert.ok(CENTRAL_QUESTION_BANK.length >= 49);
+  assert.ok(CENTRAL_QUESTION_BANK.length >= 40);
+  assert.equal(getAllServerQuestions().length, 97);
 
   for (const lesson of PRELOADED_LESSONS) {
     assert.equal(

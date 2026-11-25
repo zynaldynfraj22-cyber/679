@@ -4,24 +4,39 @@ import {
   BookPlus,
   CheckCircle2,
   Database,
+  FileSearch,
+  Filter,
   Loader2,
+  Pencil,
   Plus,
+  RefreshCw,
   Save,
   ShieldCheck,
   Sparkles,
   Table2,
   Trash2,
+  XCircle,
 } from 'lucide-react';
 import type {
   AdminAssistDraft,
   AdminAssistType,
   CurriculumSource,
+  DifficultyLevel,
+  DuplicateMatch,
   ExampleDifficulty,
   ExerciseTier,
   LearningObjective,
   Lesson,
   LessonDiagramKind,
+  MigrationReport,
   OfficialLessonCatalogItem,
+  Question,
+  QuestionAuditSummary,
+  QuestionFilter,
+  QuestionOrigin,
+  QuestionReviewRecord,
+  QuestionType,
+  QuestionVerificationState,
   Semester,
   Subject,
   SubjectId,
@@ -30,6 +45,21 @@ import type {
   VerificationStatus,
 } from '../types/curriculum';
 import { normalizeLessonStandard } from '../utils/curriculumEngine';
+import {
+  DIFFICULTY_LABELS_AR,
+  ORIGIN_LABELS_AR,
+  QUESTION_TYPE_LABELS_AR,
+  VERIFICATION_STATE_LABELS_AR,
+  validateQuestionScientifically,
+} from '../utils/questionEngine';
+import {
+  fetchAdminQuestionsApi,
+  generateAdminQuestionsApi,
+  requestAdminAssistApi,
+  reviewAdminQuestionApi,
+  runDryRunMigrationApi,
+  upsertAdminQuestionApi,
+} from '../services/firestoreService';
 
 interface AdminCmsViewProps {
   subjects: Subject[];
@@ -52,10 +82,50 @@ interface AdminCmsViewProps {
     notesAr: string
   ) => Promise<void>;
   onSeedFirestore: () => Promise<void>;
+  onQuestionBankUpdated?: () => Promise<void>;
   seedingStatus: string | null;
 }
 
-type CmsSubTab = 'editor' | 'structure' | 'sources';
+type CmsSubTab = 'editor' | 'questions' | 'structure' | 'sources';
+
+const DIFFICULTY_OPTIONS: DifficultyLevel[] = [
+  'foundation',
+  'basic_application',
+  'intermediate',
+  'advanced',
+  'olympiad',
+];
+
+const QUESTION_TYPE_OPTIONS: QuestionType[] = [
+  'mcq',
+  'multi_select',
+  'true_false',
+  'fill_blank',
+  'short_answer',
+  'numeric',
+  'matching',
+  'ordering',
+  'scientific_explanation',
+  'structured_long',
+  'diagram_interpretation',
+  'data_graph_analysis',
+];
+
+const ORIGIN_OPTIONS: QuestionOrigin[] = [
+  'OFFICIAL_PAST_EXAM',
+  'TEACHER_RESOURCE',
+  'ADMIN_CREATED',
+  'AI_GENERATED',
+];
+
+const VERIFICATION_OPTIONS: QuestionVerificationState[] = [
+  'NEEDS_REVIEW',
+  'PENDING_REVIEW',
+  'NEEDS_CORRECTION',
+  'APPROVED',
+  'REJECTED',
+  'OUTDATED',
+];
 
 const MATH_HELPERS = ['²', '³', '√()', '×10⁻', '→', '⇌', 'Δ', 'θ', 'π', 'λ', '∫', 'μ'];
 
@@ -94,6 +164,7 @@ export function AdminCmsView({
   onSaveObjective,
   onRecordVerification,
   onSeedFirestore,
+  onQuestionBankUpdated,
   seedingStatus,
 }: AdminCmsViewProps) {
   const [subTab, setSubTab] = React.useState<CmsSubTab>('editor');
@@ -133,6 +204,52 @@ export function AdminCmsView({
   const [newSourceSubject, setNewSourceSubject] = React.useState<SubjectId>('chemistry');
   const [newSourceSemester, setNewSourceSemester] = React.useState<Semester>(2);
   const [newSourceNotes, setNewSourceNotes] = React.useState('');
+
+  // Question Governance Studio state
+  const [qFilter, setQFilter] = React.useState<QuestionFilter>({
+    subjectId: 'all',
+    lessonId: 'all',
+    difficulty: 'all',
+    questionType: 'all',
+    origin: 'all',
+    verificationStatus: 'all',
+    searchQuery: '',
+  });
+  const [adminQuestions, setAdminQuestions] = React.useState<Question[]>([]);
+  const [auditSummary, setAuditSummary] = React.useState<QuestionAuditSummary | null>(null);
+  const [duplicates, setDuplicates] = React.useState<DuplicateMatch[]>([]);
+  const [questionReviews, setQuestionReviews] = React.useState<QuestionReviewRecord[]>([]);
+  const [qLoading, setQLoading] = React.useState(false);
+  const [qError, setQError] = React.useState<string | null>(null);
+  const [qNotice, setQNotice] = React.useState<string | null>(null);
+  const [reviewingId, setReviewingId] = React.useState<string | null>(null);
+
+  // Question Upsert / Edit form state
+  const [editingQuestionId, setEditingQuestionId] = React.useState<string>('');
+  const [qFormSubject, setQFormSubject] = React.useState<SubjectId>('physics');
+  const [qFormLessonId, setQFormLessonId] = React.useState<string>(lessons[0]?.id ?? '');
+  const [qFormDifficulty, setQFormDifficulty] = React.useState<DifficultyLevel>('intermediate');
+  const [qFormType, setQFormType] = React.useState<QuestionType>('mcq');
+  const [qFormOrigin, setQFormOrigin] = React.useState<QuestionOrigin>('ADMIN_CREATED');
+  const [qFormStatus, setQFormStatus] = React.useState<QuestionVerificationState>('APPROVED');
+  const [qFormPublished, setQFormPublished] = React.useState(true);
+  const [qFormSourceId, setQFormSourceId] = React.useState<string>(sources[0]?.id ?? '');
+  const [qFormPrompt, setQFormPrompt] = React.useState('');
+  const [qFormOptionsText, setQFormOptionsText] = React.useState('');
+  const [qFormCorrectAnswer, setQFormCorrectAnswer] = React.useState('');
+  const [qFormExplanation, setQFormExplanation] = React.useState('');
+  const [qFormChangeSummary, setQFormChangeSummary] = React.useState('تحديث السؤال من لوحة المشرف');
+  const [qSaving, setQSaving] = React.useState(false);
+
+  // Admin AI Draft Question Generator + Dry-Run Migration state
+  const [aiGenLessonId, setAiGenLessonId] = React.useState<string>(lessons[0]?.id ?? '');
+  const [aiGenDiff, setAiGenDiff] = React.useState<DifficultyLevel>('intermediate');
+  const [aiGenType, setAiGenType] = React.useState<QuestionType>('mcq');
+  const [aiGenCount, setAiGenCount] = React.useState<number>(2);
+  const [aiGenLoading, setAiGenLoading] = React.useState(false);
+  const [aiGenDrafts, setAiGenDrafts] = React.useState<Question[]>([]);
+  const [migrationLoading, setMigrationLoading] = React.useState(false);
+  const [migrationReport, setMigrationReport] = React.useState<MigrationReport | null>(null);
 
   React.useEffect(() => {
     if (initialCatalogDraft) {
@@ -292,32 +409,196 @@ export function AdminCmsView({
       const unit = units.find((u) => u.id === draftLesson.unitId);
       const matchedSource = sources.find((s) => draftLesson.sourceIds?.includes(s.id));
 
-      const response = await fetch('/api/admin/assist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assistType,
-          subjectTitle: subj?.titleAr ?? draftLesson.subjectId,
-          unitTitle: unit?.titleAr ?? draftLesson.unitId,
-          lessonTitle: draftLesson.titleAr,
-          semester: draftLesson.semester,
-          officialRef: draftLesson.officialRef,
-          existingContext: draftLesson.summaryAr,
-          sourceSummary: matchedSource?.notesAr ?? '',
-        }),
+      const payload = await requestAdminAssistApi({
+        assistType,
+        subjectTitle: subj?.titleAr ?? draftLesson.subjectId,
+        unitTitle: unit?.titleAr ?? draftLesson.unitId,
+        lessonTitle: draftLesson.titleAr,
+        semester: draftLesson.semester,
+        officialRef: draftLesson.officialRef,
+        existingContext: draftLesson.summaryAr,
+        sourceSummary: matchedSource?.notesAr ?? '',
       });
 
-      const payload = (await response.json()) as { draft?: AdminAssistDraft; error?: string };
-      if (!response.ok || !payload.draft) {
-        setAssistError(payload.error ?? 'تعذر توليد المسودة بالذكاء الاصطناعي.');
-        return;
-      }
-
       setLastAiDraft(payload.draft);
-    } catch {
-      setAssistError('تعذر الاتصال بخدمة المساعد الإداري على الخادم.');
+    } catch (error) {
+      setAssistError(
+        error instanceof Error
+          ? error.message
+          : 'تعذر الاتصال بخدمة المساعد الإداري على الخادم.'
+      );
     } finally {
       setAssistLoading(false);
+    }
+  };
+
+  const loadAdminQuestions = React.useCallback(async () => {
+    if (!isAdminUser) return;
+    setQLoading(true);
+    setQError(null);
+    try {
+      const data = await fetchAdminQuestionsApi(qFilter);
+      setAdminQuestions(data.questions);
+      setAuditSummary(data.auditSummary);
+      setDuplicates(data.duplicates);
+      setQuestionReviews(data.reviews);
+    } catch (error) {
+      setQError(
+        error instanceof Error ? error.message : 'تعذر تحميل سجل الأسئلة الإداري.'
+      );
+    } finally {
+      setQLoading(false);
+    }
+  }, [isAdminUser, qFilter]);
+
+  React.useEffect(() => {
+    if (subTab === 'questions' && isAdminUser) {
+      void loadAdminQuestions();
+    }
+  }, [subTab, isAdminUser, loadAdminQuestions]);
+
+  const handleReviewQuestion = async (
+    questionId: string,
+    status: QuestionVerificationState,
+    notesAr: string
+  ) => {
+    setReviewingId(questionId);
+    setQError(null);
+    setQNotice(null);
+    try {
+      const res = await reviewAdminQuestionApi(questionId, { status, notesAr });
+      setQNotice(
+        `تم تحديث حالة السؤال (${questionId}) إلى ${VERIFICATION_STATE_LABELS_AR[status]}${
+          res.persistedToFirestore ? ' وحفظه في Firestore.' : ' في ذاكرة الخادم.'
+        }`
+      );
+      await loadAdminQuestions();
+      if (onQuestionBankUpdated) {
+        await onQuestionBankUpdated();
+      }
+    } catch (error) {
+      setQError(error instanceof Error ? error.message : 'تعذر تسجيل قرار المراجعة.');
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const handleLoadQuestionForEdit = (q: Question) => {
+    setEditingQuestionId(q.id);
+    setQFormSubject(q.subjectId);
+    setQFormLessonId(q.lessonId);
+    setQFormDifficulty(q.difficulty);
+    setQFormType(q.questionType);
+    setQFormOrigin(q.origin ?? 'ADMIN_CREATED');
+    setQFormStatus(q.verificationStatus ?? 'NEEDS_REVIEW');
+    setQFormPublished(Boolean(q.isPublished));
+    setQFormSourceId(q.sourceId ?? sources[0]?.id ?? '');
+    setQFormPrompt(q.promptAr);
+    setQFormOptionsText((q.optionsAr ?? []).join('\n'));
+    setQFormCorrectAnswer(q.correctAnswer);
+    setQFormExplanation(q.explanationAr);
+    setQFormChangeSummary('مراجعة وتحديث بيانات السؤال');
+  };
+
+  const handleResetQuestionForm = () => {
+    setEditingQuestionId('');
+    setQFormPrompt('');
+    setQFormOptionsText('');
+    setQFormCorrectAnswer('');
+    setQFormExplanation('');
+    setQFormChangeSummary('إضافة سؤال جديد إلى بنك الأسئلة');
+  };
+
+  const handleSaveQuestionForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qFormPrompt.trim() || !qFormCorrectAnswer.trim() || !qFormExplanation.trim()) return;
+    const lessonObj = lessons.find((l) => l.id === qFormLessonId) ?? lessons[0];
+    const parsedOpts = qFormOptionsText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const questionId = editingQuestionId.trim() || `q-cms-${Date.now()}`;
+    const payload: Question = {
+      id: questionId,
+      subjectId: lessonObj.subjectId,
+      unitId: lessonObj.unitId,
+      lessonId: lessonObj.id,
+      semester: lessonObj.semester,
+      difficulty: qFormDifficulty,
+      questionType: qFormType,
+      promptAr: qFormPrompt.trim(),
+      optionsAr: parsedOpts.length > 0 ? parsedOpts : undefined,
+      correctAnswer: qFormCorrectAnswer.trim(),
+      explanationAr: qFormExplanation.trim(),
+      marks: qFormType === 'structured_long' ? 4 : qFormType === 'numeric' ? 2 : 1,
+      origin: qFormOrigin,
+      verificationStatus: qFormStatus,
+      sourceId: qFormSourceId.trim() || undefined,
+      sourceRefAr:
+        sources.find((s) => s.id === qFormSourceId)?.titleAr ?? lessonObj.officialRef,
+      isPublished: qFormPublished,
+    };
+
+    setQSaving(true);
+    setQError(null);
+    setQNotice(null);
+    try {
+      const res = await upsertAdminQuestionApi({
+        question: payload,
+        changeSummaryAr: qFormChangeSummary.trim() || 'تحديث إداري للسؤال',
+      });
+      setQNotice(
+        `تم حفظ السؤال (${res.question.id}) — إجمالي البنك: ${res.totalQuestions}، المعتمد للطلبة: ${res.publicCount}.`
+      );
+      handleResetQuestionForm();
+      await loadAdminQuestions();
+      if (onQuestionBankUpdated) {
+        await onQuestionBankUpdated();
+      }
+    } catch (error) {
+      setQError(error instanceof Error ? error.message : 'تعذر حفظ السؤال.');
+    } finally {
+      setQSaving(false);
+    }
+  };
+
+  const handleGenerateAdminQuestions = async () => {
+    const targetLesson = lessons.find((l) => l.id === aiGenLessonId) ?? lessons[0];
+    const targetSubj = subjects.find((s) => s.id === targetLesson.subjectId);
+    setAiGenLoading(true);
+    setQError(null);
+    try {
+      const res = await generateAdminQuestionsApi({
+        subjectId: targetLesson.subjectId,
+        unitId: targetLesson.unitId,
+        lessonId: targetLesson.id,
+        semester: targetLesson.semester,
+        lessonTitle: targetLesson.titleAr,
+        subjectTitle: targetSubj?.titleAr ?? targetLesson.subjectId,
+        difficulty: aiGenDiff,
+        questionType: aiGenType,
+        count: aiGenCount,
+        lessonContext: targetLesson.summaryAr,
+      });
+      setAiGenDrafts(res.questions);
+      setQNotice(`تم توليد ${res.questions.length} مسودة أسئلة بحالة PENDING_REVIEW بانتظار الاعتماد.`);
+    } catch (error) {
+      setQError(error instanceof Error ? error.message : 'تعذر توليد مسودات الأسئلة.');
+    } finally {
+      setAiGenLoading(false);
+    }
+  };
+
+  const handleRunDryRunMigration = async () => {
+    setMigrationLoading(true);
+    setQError(null);
+    try {
+      const res = await runDryRunMigrationApi();
+      setMigrationReport(res.report);
+    } catch (error) {
+      setQError(error instanceof Error ? error.message : 'تعذر تنفيذ فحص الترحيل الآمن.');
+    } finally {
+      setMigrationLoading(false);
     }
   };
 
@@ -472,6 +753,7 @@ export function AdminCmsView({
       >
         {[
           { id: 'editor' as const, label: 'محرر الدروس الستة والرسوم' },
+          { id: 'questions' as const, label: 'إدارة ومراجعة بنك الأسئلة' },
           { id: 'structure' as const, label: 'إدارة الوحدات والأهداف التعليمية' },
           { id: 'sources' as const, label: 'سجل المصادر ومراجعة الاعتماد' },
         ].map((tab) => (
@@ -1281,6 +1563,684 @@ export function AdminCmsView({
               تسجيل المصدر في السجل
             </button>
           </form>
+        </div>
+      )}
+      {/* Sub-tab 4: Question Bank Governance, Review Queue, AI Drafts & Dry-Run Migration */}
+      {subTab === 'questions' && (
+        <div className="space-y-6">
+          {!isAdminUser ? (
+            <div
+              role="alert"
+              className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-6 space-y-2"
+            >
+              <div className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
+                <AlertTriangle className="w-4 h-4" />
+                <span>صلاحية المشرف مطلوبة لإدارة بنك الأسئلة ومفاتيح الإجابة</span>
+              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                لأسباب أمنية صارمة، لا يتم تحميل مفاتيح الإجابة أو قرارات المراجعة أو مسودات الذكاء الاصطناعي أو تقارير الترحيل إلى المتصفح إلا بعد تسجيل الدخول بحساب المشرف المعتمد والتحقق منه على الخادم.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Audit Summary KPIs + Dry-Run Migration Trigger */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                      حوكمة بنك الأسئلة والمراجعة العلمية
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      تظهر للطلبة الأسئلة المعتمدة (APPROVED) والمنشورة فقط، بينما تبقى الأسئلة قيد المراجعة معزولة على الخادم.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleRunDryRunMigration()}
+                      disabled={migrationLoading}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-sky-700 text-sky-800 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950 disabled:opacity-50 cursor-pointer"
+                    >
+                      <FileSearch className="w-3.5 h-3.5" />
+                      <span>{migrationLoading ? 'جاري الفحص...' : 'فحص الترحيل الآمن (Dry-Run)'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void loadAdminQuestions()}
+                      disabled={qLoading}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-800 hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} />
+                      <span>تحديث السجل</span>
+                    </button>
+                  </div>
+                </div>
+
+                {auditSummary && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">الإجمالي</p>
+                      <p className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                        {auditSummary.totalQuestions}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400">معتمد للطلبة</p>
+                      <p className="font-mono text-lg font-bold text-emerald-800 dark:text-emerald-300 tabular-nums">
+                        {auditSummary.approvedCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">يحتاج مراجعة</p>
+                      <p className="font-mono text-lg font-bold text-amber-800 dark:text-amber-300 tabular-nums">
+                        {auditSummary.needsReviewCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-3">
+                      <p className="text-[11px] text-sky-700 dark:text-sky-400">بانتظار الاعتماد</p>
+                      <p className="font-mono text-lg font-bold text-sky-800 dark:text-sky-300 tabular-nums">
+                        {auditSummary.pendingReviewCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20 p-3">
+                      <p className="text-[11px] text-rose-700 dark:text-rose-400">بحاجة لتصحيح</p>
+                      <p className="font-mono text-lg font-bold text-rose-800 dark:text-rose-300 tabular-nums">
+                        {auditSummary.needsCorrectionCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">تكرار محتمل</p>
+                      <p className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                        {auditSummary.duplicatePairsCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">مصدر ناقص</p>
+                      <p className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                        {auditSummary.missingSourceCount}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {migrationReport && (
+                  <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/20 p-4 text-xs space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-sky-900 dark:text-sky-200">
+                      <span>نتيجة فحص الترحيل الآمن (Dry-Run)</span>
+                      <span className="font-mono tabular-nums">
+                        فحص التسريب: {migrationReport.publicLeakCheckPassed ? 'ناجح' : 'فشل'} · تطابق المعرفات: {migrationReport.parityCheckPassed ? 'متطابق' : 'مختلف'}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300">
+                      إجمالي المفحوص: {migrationReport.totalScanned} (قديم: {migrationReport.legacyCount} · موسع: {migrationReport.extendedCount}) · وثائق عامة للطلبة: {migrationReport.publicDocsPrepared} · مفاتيح إجابة خاصة: {migrationReport.privateAnswerKeyDocsPrepared} · عناصر بدون مصدر كامل: {migrationReport.incompleteOrMissingSourceIds.length}
+                    </p>
+                    {migrationReport.warningsAr.length > 0 && (
+                      <ul className="list-disc list-inside text-amber-800 dark:text-amber-300 space-y-0.5">
+                        {migrationReport.warningsAr.map((w, idx) => (
+                          <li key={idx}>{w}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {qNotice && (
+                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2.5 text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                    {qNotice}
+                  </div>
+                )}
+                {qError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 px-4 py-2.5 text-xs font-medium text-rose-900 dark:text-rose-200"
+                  >
+                    {qError}
+                  </div>
+                )}
+              </div>
+
+              {/* Filter Bar */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <Filter className="w-3.5 h-3.5 text-sky-700" />
+                  <span>تصفية الأسئلة للمراجعة والاعتماد</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+                  <select
+                    aria-label="تصفية المادة في الإدارة"
+                    value={qFilter.subjectId ?? 'all'}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({
+                        ...prev,
+                        subjectId: e.target.value as SubjectId | 'all',
+                        lessonId: 'all',
+                      }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                  >
+                    <option value="all">كل المواد</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.titleAr}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    aria-label="تصفية حالة التحقق"
+                    value={qFilter.verificationStatus ?? 'all'}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({
+                        ...prev,
+                        verificationStatus: e.target.value as QuestionVerificationState | 'all',
+                      }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                  >
+                    <option value="all">كل حالات التحقق</option>
+                    {VERIFICATION_OPTIONS.map((st) => (
+                      <option key={st} value={st}>
+                        {VERIFICATION_STATE_LABELS_AR[st]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    aria-label="تصفية مستوى الصعوبة"
+                    value={qFilter.difficulty ?? 'all'}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({
+                        ...prev,
+                        difficulty: e.target.value as DifficultyLevel | 'all',
+                      }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                  >
+                    <option value="all">كل مستويات الصعوبة (٥)</option>
+                    {DIFFICULTY_OPTIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {DIFFICULTY_LABELS_AR[d]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    aria-label="تصفية نوع السؤال"
+                    value={qFilter.questionType ?? 'all'}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({
+                        ...prev,
+                        questionType: e.target.value as QuestionType | 'all',
+                      }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                  >
+                    <option value="all">كل الأنواع (١٢)</option>
+                    {QUESTION_TYPE_OPTIONS.map((t) => (
+                      <option key={t} value={t}>
+                        {QUESTION_TYPE_LABELS_AR[t]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    aria-label="تصفية مصدر السؤال"
+                    value={qFilter.origin ?? 'all'}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({
+                        ...prev,
+                        origin: e.target.value as QuestionOrigin | 'all',
+                      }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                  >
+                    <option value="all">كل المصادر</option>
+                    {ORIGIN_OPTIONS.map((o) => (
+                      <option key={o} value={o}>
+                        {ORIGIN_LABELS_AR[o]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="search"
+                    aria-label="بحث في نص السؤال"
+                    placeholder="بحث في السؤال أو المعرف..."
+                    value={qFilter.searchQuery ?? ''}
+                    onChange={(e) =>
+                      setQFilter((prev) => ({ ...prev, searchQuery: e.target.value }))
+                    }
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Main 2-column Question Governance Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Questions List + Review Actions */}
+                <div className="lg:col-span-7 space-y-3">
+                  {duplicates.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 p-4 text-xs space-y-1">
+                      <p className="font-bold text-amber-900 dark:text-amber-300">
+                        تنبيه تشابه/تكرار محتمل ({duplicates.length})
+                      </p>
+                      {duplicates.slice(0, 4).map((dup, i) => (
+                        <p key={i} className="text-amber-800 dark:text-amber-200 font-mono">
+                          {dup.questionAId} ↔ {dup.questionBId}: {dup.reasonAr} ({dup.similarityScore})
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-200 dark:divide-slate-800">
+                    <div className="px-5 py-3 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span>الأسئلة المطابقة ({adminQuestions.length})</span>
+                      <span className="font-normal text-slate-500">
+                        سجل المراجعات المسجل: {questionReviews.length}
+                      </span>
+                    </div>
+
+                    {adminQuestions.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                        {qLoading ? 'جاري تحميل الأسئلة...' : 'لا توجد أسئلة مطابقة لمعايير التصفية الحالية.'}
+                      </div>
+                    ) : (
+                      adminQuestions.slice(0, 30).map((q) => {
+                        const sciReport =
+                          q.scientificValidation ?? validateQuestionScientifically(q);
+                        const status = q.verificationStatus ?? 'NEEDS_REVIEW';
+                        const statusBadgeColor =
+                          status === 'APPROVED'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800'
+                            : status === 'REJECTED' || status === 'NEEDS_CORRECTION'
+                            ? 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800'
+                            : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800';
+
+                        return (
+                          <div key={q.id} className="p-4 space-y-2.5 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                                  {q.id}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded border font-semibold ${statusBadgeColor}`}>
+                                  {VERIFICATION_STATE_LABELS_AR[status]}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  {DIFFICULTY_LABELS_AR[q.difficulty]}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  {QUESTION_TYPE_LABELS_AR[q.questionType]}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-slate-500">
+                                {ORIGIN_LABELS_AR[q.origin ?? 'ADMIN_CREATED']}
+                              </span>
+                            </div>
+
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                              {q.promptAr}
+                            </p>
+
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-2.5 space-y-1">
+                              <p className="text-emerald-800 dark:text-emerald-300">
+                                <strong>الإجابة المعتمدة:</strong> {q.correctAnswer}
+                              </p>
+                              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                                <strong>التفسير:</strong> {q.explanationAr}
+                              </p>
+                              <p className="text-slate-500 dark:text-slate-400">
+                                <strong>المصدر:</strong> {q.sourceId || 'غير مرتبط'} {q.sourceRefAr ? `(${q.sourceRefAr})` : ''}
+                              </p>
+                            </div>
+
+                            {(sciReport.errorsAr.length > 0 || sciReport.warningsAr.length > 0) && (
+                              <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-2 text-[11px] text-amber-900 dark:text-amber-300 space-y-0.5">
+                                {sciReport.errorsAr.map((err, idx) => (
+                                  <p key={`e-${idx}`}>خطأ تدقيق: {err}</p>
+                                ))}
+                                {sciReport.warningsAr.map((warn, idx) => (
+                                  <p key={`w-${idx}`}>ملاحظة علمية: {warn}</p>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              <button
+                                type="button"
+                                disabled={reviewingId === q.id}
+                                onClick={() =>
+                                  void handleReviewQuestion(
+                                    q.id,
+                                    'APPROVED',
+                                    'اعتماد علمي ونشر للطلبة من لوحة الحوكمة.'
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>اعتماد ونشر</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={reviewingId === q.id}
+                                onClick={() =>
+                                  void handleReviewQuestion(
+                                    q.id,
+                                    'NEEDS_CORRECTION',
+                                    'يحتاج تعديلاً أو توثيق مصدر من المشرف.'
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-amber-600 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 cursor-pointer"
+                              >
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>يحتاج تصحيح</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={reviewingId === q.id}
+                                onClick={() =>
+                                  void handleReviewQuestion(
+                                    q.id,
+                                    'REJECTED',
+                                    'مرفوض وغير صالح للعرض.'
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-rose-600 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950 cursor-pointer"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                <span>رفض</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleLoadQuestionForEdit(q)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                <span>تعديل</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Sidebar: Create/Edit Question + AI Question Generator */}
+                <div className="lg:col-span-5 space-y-5">
+                  <form
+                    onSubmit={(e) => void handleSaveQuestionForm(e)}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                        {editingQuestionId
+                          ? `تعديل سؤال (${editingQuestionId})`
+                          : 'إضافة سؤال جديد إلى البنك'}
+                      </h3>
+                      {editingQuestionId && (
+                        <button
+                          type="button"
+                          onClick={handleResetQuestionForm}
+                          className="text-xs text-sky-700 dark:text-sky-400 hover:underline cursor-pointer"
+                        >
+                          سؤال جديد
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <select
+                        aria-label="الدرس المرتبط بالسؤال"
+                        value={qFormLessonId}
+                        onChange={(e) => {
+                          const found = lessons.find((l) => l.id === e.target.value);
+                          setQFormLessonId(e.target.value);
+                          if (found) setQFormSubject(found.subjectId);
+                        }}
+                        className="sm:col-span-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                      >
+                        {lessons.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {subjects.find((s) => s.id === l.subjectId)?.titleAr} — {l.titleAr}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="مستوى صعوبة السؤال"
+                        value={qFormDifficulty}
+                        onChange={(e) => setQFormDifficulty(e.target.value as DifficultyLevel)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                      >
+                        {DIFFICULTY_OPTIONS.map((d) => (
+                          <option key={d} value={d}>
+                            {DIFFICULTY_LABELS_AR[d]}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="نوع السؤال في المحرر"
+                        value={qFormType}
+                        onChange={(e) => setQFormType(e.target.value as QuestionType)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                      >
+                        {QUESTION_TYPE_OPTIONS.map((t) => (
+                          <option key={t} value={t}>
+                            {QUESTION_TYPE_LABELS_AR[t]}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="مصدر السؤال في المحرر"
+                        value={qFormOrigin}
+                        onChange={(e) => setQFormOrigin(e.target.value as QuestionOrigin)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                      >
+                        {ORIGIN_OPTIONS.map((o) => (
+                          <option key={o} value={o}>
+                            {ORIGIN_LABELS_AR[o]}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="حالة اعتماد السؤال"
+                        value={qFormStatus}
+                        onChange={(e) => setQFormStatus(e.target.value as QuestionVerificationState)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                      >
+                        {VERIFICATION_OPTIONS.map((st) => (
+                          <option key={st} value={st}>
+                            {VERIFICATION_STATE_LABELS_AR[st]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <select
+                      aria-label="المرجع المنهجي للسؤال"
+                      value={qFormSourceId}
+                      onChange={(e) => setQFormSourceId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                    >
+                      <option value="">بدون مصدر محدد</option>
+                      {sources
+                        .filter((s) => s.subjectId === qFormSubject)
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.titleAr}
+                          </option>
+                        ))}
+                    </select>
+
+                    <textarea
+                      rows={3}
+                      required
+                      aria-label="نص السؤال"
+                      placeholder="اكتب نص السؤال العلمي باللغة العربية..."
+                      value={qFormPrompt}
+                      onChange={(e) => setQFormPrompt(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs"
+                    />
+
+                    {(qFormType === 'mcq' ||
+                      qFormType === 'multi_select' ||
+                      qFormType === 'diagram_interpretation' ||
+                      qFormType === 'data_graph_analysis') && (
+                      <textarea
+                        rows={3}
+                        aria-label="خيارات الاختيار"
+                        placeholder="الخيارات (خيار واحد في كل سطر)..."
+                        value={qFormOptionsText}
+                        onChange={(e) => setQFormOptionsText(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs"
+                      />
+                    )}
+
+                    <input
+                      type="text"
+                      required
+                      aria-label="الإجابة الصحيحة"
+                      placeholder="الإجابة النموذجية الصحيحة..."
+                      value={qFormCorrectAnswer}
+                      onChange={(e) => setQFormCorrectAnswer(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs"
+                    />
+
+                    <textarea
+                      rows={2}
+                      required
+                      aria-label="التفسير العلمي للحل"
+                      placeholder="التفسير العلمي وخطوات الحل..."
+                      value={qFormExplanation}
+                      onChange={(e) => setQFormExplanation(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs"
+                    />
+
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={qFormPublished}
+                        onChange={(e) => setQFormPublished(e.target.checked)}
+                      />
+                      <span>نشر السؤال للطلبة (يظهر فعلياً فقط عند حالة APPROVED)</span>
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={qSaving}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{qSaving ? 'جاري الحفظ...' : 'حفظ السؤال وتسجيل الإصدار'}</span>
+                    </button>
+                  </form>
+
+                  {/* Admin-only AI Question Draft Generator */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+                      <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                        توليد مسودات أسئلة بالذكاء الاصطناعي (للمشرف)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      تُحفظ المسودات على الخادم بحالة <strong>PENDING_REVIEW</strong> ولا تصل للطلبة إلا بعد مراجعتها واعتمادها.
+                    </p>
+                    <select
+                      aria-label="درس توليد المسودات"
+                      value={aiGenLessonId}
+                      onChange={(e) => setAiGenLessonId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs"
+                    >
+                      {lessons.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {subjects.find((s) => s.id === l.subjectId)?.titleAr} — {l.titleAr}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        aria-label="صعوبة المسودة"
+                        value={aiGenDiff}
+                        onChange={(e) => setAiGenDiff(e.target.value as DifficultyLevel)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs"
+                      >
+                        {DIFFICULTY_OPTIONS.map((d) => (
+                          <option key={d} value={d}>
+                            {DIFFICULTY_LABELS_AR[d]}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label="نوع مسودة السؤال"
+                        value={aiGenType}
+                        onChange={(e) => setAiGenType(e.target.value as QuestionType)}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs"
+                      >
+                        {QUESTION_TYPE_OPTIONS.map((t) => (
+                          <option key={t} value={t}>
+                            {QUESTION_TYPE_LABELS_AR[t]}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        max={4}
+                        aria-label="عدد المسودات"
+                        value={aiGenCount}
+                        onChange={(e) => setAiGenCount(Math.max(1, Math.min(4, Number(e.target.value))))}
+                        className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs font-mono text-center"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={aiGenLoading}
+                      onClick={() => void handleGenerateAdminQuestions()}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{aiGenLoading ? 'جاري التوليد...' : 'توليد مسودات أسئلة'}</span>
+                    </button>
+
+                    {aiGenDrafts.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                        {aiGenDrafts.map((dq) => (
+                          <div
+                            key={dq.id}
+                            className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3 text-xs space-y-1.5"
+                          >
+                            <p className="font-semibold text-slate-900 dark:text-white">{dq.promptAr}</p>
+                            <p className="text-emerald-800 dark:text-emerald-300">
+                              الإجابة: {dq.correctAnswer}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleReviewQuestion(
+                                  dq.id,
+                                  'APPROVED',
+                                  'تمت مراجعة مسودة الذكاء الاصطناعي واعتمادها.'
+                                )
+                              }
+                              className="px-2.5 py-1 rounded bg-emerald-700 text-white hover:bg-emerald-800 cursor-pointer"
+                            >
+                              اعتماد المسودة ونشرها
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

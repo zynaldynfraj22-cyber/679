@@ -4,8 +4,9 @@ import { auth, googleProvider } from './lib/firebase';
 import {
   checkUserIsAdmin,
   ensureUserProfile,
+  fetchPublicQuestionsFromApi,
   fetchPublishedCurriculumFromFirestore,
-  recordExamAttempt,
+  fetchServerAttemptsApi,
   saveCmsLessonToFirestore,
   saveCmsObjectiveToFirestore,
   saveCmsSourceToFirestore,
@@ -28,14 +29,14 @@ import {
   OMAN_SEMESTERS,
 } from './data/sourcesAndCatalog';
 import type {
-  AssessmentResult,
   CurriculumSource,
   ExamAttempt,
+  ExamSubmitResponse,
   LearningObjective,
   Lesson,
   LessonProgress,
   OfficialLessonCatalogItem,
-  Question,
+  PublicQuestion,
   Semester,
   Subject,
   SubjectId,
@@ -52,13 +53,20 @@ import { QuestionBankView } from './components/QuestionBankView';
 import { AiTutorPanel } from './components/AiTutorPanel';
 import { CoverageDashboard } from './components/CoverageDashboard';
 import { AdminCmsView } from './components/AdminCmsView';
+import { GoogleDriveManager } from './components/GoogleDriveManager';
+import { StudentIntelligenceDashboard } from './components/StudentIntelligenceDashboard';
+import { StudyPlannerView } from './components/StudyPlannerView';
+import { SmartRevisionView } from './components/SmartRevisionView';
+import { StudentGoalsView } from './components/StudentGoalsView';
+import { StudentReportsView } from './components/StudentReportsView';
+import { DiplomaExamHub } from './components/DiplomaExamHub';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [subjects, setSubjects] = React.useState<Subject[]>(OMAN_SUBJECTS);
   const [units, setUnits] = React.useState<Unit[]>(OMAN_UNITS);
   const [lessons, setLessons] = React.useState<Lesson[]>(PRELOADED_LESSONS);
-  const [questions, setQuestions] = React.useState<Question[]>(CENTRAL_QUESTION_BANK);
+  const [questions, setQuestions] = React.useState<PublicQuestion[]>(CENTRAL_QUESTION_BANK);
   const [sources, setSources] = React.useState<CurriculumSource[]>(OMAN_CURRICULUM_SOURCES);
   const [objectives, setObjectives] = React.useState<LearningObjective[]>(
     OFFICIAL_LEARNING_OBJECTIVES
@@ -106,64 +114,81 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Load published curriculum from Firestore if present (keeping preloaded Omani MOE bundle ready immediately)
+  const refreshPublicQuestions = React.useCallback(async () => {
+    try {
+      const apiQuestions = await fetchPublicQuestionsFromApi();
+      if (apiQuestions.length > 0) {
+        setQuestions(apiQuestions);
+      }
+    } catch {
+      // Keep preloaded approved public bundle if backend API is temporarily unreachable
+    }
+  }, []);
+
+  // Load published curriculum from Firestore and verified public questions from backend API
   React.useEffect(() => {
     let active = true;
-    void fetchPublishedCurriculumFromFirestore().then((remote) => {
-      if (!active || !remote) return;
-      if (remote.subjects.length >= 4) {
-        setSubjects((prev) =>
-          prev.map((localSubj) => {
-            const match = remote.subjects.find((r) => r.id === localSubj.id);
-            return match ? { ...localSubj, ...match, imageUrl: localSubj.imageUrl } : localSubj;
-          })
-        );
+    void Promise.all([
+      fetchPublishedCurriculumFromFirestore(),
+      fetchPublicQuestionsFromApi().catch(() => [] as PublicQuestion[]),
+    ]).then(([remote, apiQuestions]) => {
+      if (!active) return;
+      if (remote) {
+        if (remote.subjects.length >= 4) {
+          setSubjects((prev) =>
+            prev.map((localSubj) => {
+              const match = remote.subjects.find((r) => r.id === localSubj.id);
+              return match ? { ...localSubj, ...match, imageUrl: localSubj.imageUrl } : localSubj;
+            })
+          );
+        }
+        if (remote.units.length >= OMAN_UNITS.length) setUnits(remote.units);
+        if (remote.lessons.length >= PRELOADED_LESSONS.length) {
+          setLessons(
+            remote.lessons.map((remoteLesson) => {
+              const localMatch = PRELOADED_LESSONS.find((l) => l.id === remoteLesson.id);
+              return {
+                ...localMatch,
+                ...remoteLesson,
+                keyPointsAr: Array.isArray(remoteLesson.keyPointsAr)
+                  ? remoteLesson.keyPointsAr
+                  : (localMatch?.keyPointsAr ?? []),
+                keyFormulas: Array.isArray(remoteLesson.keyFormulas)
+                  ? remoteLesson.keyFormulas
+                  : (localMatch?.keyFormulas ?? []),
+                sections: Array.isArray(remoteLesson.sections)
+                  ? remoteLesson.sections
+                  : (localMatch?.sections ?? []),
+                solvedExamples: Array.isArray(remoteLesson.solvedExamples)
+                  ? remoteLesson.solvedExamples
+                  : (localMatch?.solvedExamples ?? []),
+                exercises: Array.isArray(remoteLesson.exercises)
+                  ? remoteLesson.exercises
+                  : (localMatch?.exercises ?? []),
+              };
+            })
+          );
+        }
+        if (remote.sources.length >= OMAN_CURRICULUM_SOURCES.length) {
+          setSources(remote.sources);
+        }
+        if (remote.objectives.length >= OFFICIAL_LEARNING_OBJECTIVES.length) {
+          setObjectives(remote.objectives);
+        }
       }
-      if (remote.units.length >= OMAN_UNITS.length) setUnits(remote.units);
-      if (remote.lessons.length >= PRELOADED_LESSONS.length) {
-        setLessons(
-          remote.lessons.map((remoteLesson) => {
-            const localMatch = PRELOADED_LESSONS.find((l) => l.id === remoteLesson.id);
-            return {
-              ...localMatch,
-              ...remoteLesson,
-              keyPointsAr: Array.isArray(remoteLesson.keyPointsAr)
-                ? remoteLesson.keyPointsAr
-                : (localMatch?.keyPointsAr ?? []),
-              keyFormulas: Array.isArray(remoteLesson.keyFormulas)
-                ? remoteLesson.keyFormulas
-                : (localMatch?.keyFormulas ?? []),
-              sections: Array.isArray(remoteLesson.sections)
-                ? remoteLesson.sections
-                : (localMatch?.sections ?? []),
-              solvedExamples: Array.isArray(remoteLesson.solvedExamples)
-                ? remoteLesson.solvedExamples
-                : (localMatch?.solvedExamples ?? []),
-              exercises: Array.isArray(remoteLesson.exercises)
-                ? remoteLesson.exercises
-                : (localMatch?.exercises ?? []),
-            };
-          })
-        );
-      }
-      if (remote.questions.length >= CENTRAL_QUESTION_BANK.length) {
+      if (apiQuestions.length > 0) {
+        setQuestions(apiQuestions);
+      } else if (remote && remote.questions.length >= CENTRAL_QUESTION_BANK.length) {
         setQuestions(
           remote.questions.map((remoteQ) => {
             const localMatch = CENTRAL_QUESTION_BANK.find((q) => q.id === remoteQ.id);
             return {
               ...localMatch,
               ...remoteQ,
-              numericTolerance: remoteQ.numericTolerance ?? localMatch?.numericTolerance,
               sourceRefAr: remoteQ.sourceRefAr ?? localMatch?.sourceRefAr,
             };
           })
         );
-      }
-      if (remote.sources.length >= OMAN_CURRICULUM_SOURCES.length) {
-        setSources(remote.sources);
-      }
-      if (remote.objectives.length >= OFFICIAL_LEARNING_OBJECTIVES.length) {
-        setObjectives(remote.objectives);
       }
     });
     return () => {
@@ -185,17 +210,37 @@ export default function App() {
 
       if (firebaseUser) {
         try {
-          const [profile, adminFlag] = await Promise.all([
+          const [profile, adminFlag, serverAttempts] = await Promise.all([
             ensureUserProfile(firebaseUser),
             checkUserIsAdmin(firebaseUser),
+            fetchServerAttemptsApi().catch(() => [] as ExamAttempt[]),
           ]);
           setUserProfile(profile);
           setIsAdminUser(adminFlag);
+          if (serverAttempts.length > 0) {
+            setAttempts((prev) => {
+              const merged = new Map<string, ExamAttempt>();
+              for (const att of [...serverAttempts, ...prev]) {
+                merged.set(att.id, att);
+              }
+              return Array.from(merged.values()).sort((a, b) =>
+                b.createdAtIso.localeCompare(a.createdAtIso)
+              );
+            });
+          }
           unsubProgress = subscribeUserProgress(firebaseUser.uid, (nextMap) => {
             setProgressMap(nextMap);
           });
-          unsubAttempts = subscribeUserAttempts(firebaseUser.uid, (nextAttempts) => {
-            setAttempts(nextAttempts);
+          unsubAttempts = subscribeUserAttempts(firebaseUser.uid, (firestoreAttempts) => {
+            setAttempts((prev) => {
+              const merged = new Map<string, ExamAttempt>();
+              for (const att of [...firestoreAttempts, ...prev]) {
+                merged.set(att.id, att);
+              }
+              return Array.from(merged.values()).sort((a, b) =>
+                b.createdAtIso.localeCompare(a.createdAtIso)
+              );
+            });
           });
         } catch (err) {
           console.error('Failed to initialize user Firestore sync:', err);
@@ -252,7 +297,7 @@ export default function App() {
 
   const upsertProgress = async (
     lesson: Lesson,
-    patch: Partial<Omit<LessonProgress, 'userId' | 'lessonId' | 'subjectId'>>
+    patch: Partial<Omit<LessonProgress, 'userId' | 'lessonId' | 'subjectId' | 'bestExamScore'>>
   ) => {
     const existing = progressMap[lesson.id];
     const nextEntry: LessonProgress = {
@@ -261,7 +306,7 @@ export default function App() {
       subjectId: lesson.subjectId,
       status: patch.status ?? existing?.status ?? 'in_progress',
       bookmarked: patch.bookmarked ?? existing?.bookmarked ?? false,
-      bestExamScore: patch.bestExamScore ?? existing?.bestExamScore ?? 0,
+      bestExamScore: existing?.bestExamScore ?? 0,
       notesAr: patch.notesAr ?? existing?.notesAr ?? '',
     };
 
@@ -273,7 +318,6 @@ export default function App() {
         subjectId: nextEntry.subjectId,
         status: nextEntry.status,
         bookmarked: nextEntry.bookmarked,
-        bestExamScore: nextEntry.bestExamScore,
         notesAr: nextEntry.notesAr,
       });
     }
@@ -289,75 +333,38 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmitLessonExam = async (lesson: Lesson, result: AssessmentResult) => {
+  const handleServerExamCompleted = (lesson: Lesson, response: ExamSubmitResponse) => {
     const existingBest = progressMap[lesson.id]?.bestExamScore ?? 0;
-    const newBest = Math.max(existingBest, result.scorePercent);
-    const nextStatus = result.scorePercent >= 60 ? 'completed' : 'in_progress';
+    const newBest = Math.max(existingBest, response.result.scorePercent);
+    const nextStatus =
+      response.result.scorePercent >= 60
+        ? 'completed'
+        : (progressMap[lesson.id]?.status ?? 'in_progress');
 
-    await upsertProgress(lesson, {
-      status: nextStatus,
-      bestExamScore: newBest,
-    });
-
-    const attemptId = `att-${Date.now()}`;
-    const newAttempt: ExamAttempt = {
-      id: attemptId,
-      userId: user?.uid ?? 'guest',
-      lessonId: lesson.id,
-      subjectId: lesson.subjectId,
-      mode: 'lesson_exam',
-      totalQuestions: result.totalQuestions,
-      correctCount: result.correctCount,
-      scorePercent: result.scorePercent,
-      createdAtIso: new Date().toISOString(),
-    };
-    setAttempts((prev) => [newAttempt, ...prev]);
-
-    if (user) {
-      await recordExamAttempt(user.uid, {
-        attemptId,
+    setProgressMap((prev) => ({
+      ...prev,
+      [lesson.id]: {
+        userId: user?.uid ?? response.attempt.userId,
         lessonId: lesson.id,
         subjectId: lesson.subjectId,
-        mode: 'lesson_exam',
-        totalQuestions: result.totalQuestions,
-        correctCount: result.correctCount,
-        scorePercent: result.scorePercent,
-      });
-    }
+        status: nextStatus,
+        bookmarked: prev[lesson.id]?.bookmarked ?? false,
+        bestExamScore: newBest,
+        notesAr: prev[lesson.id]?.notesAr ?? '',
+      },
+    }));
+
+    setAttempts((prev) => {
+      const filtered = prev.filter((a) => a.id !== response.attempt.id);
+      return [response.attempt, ...filtered];
+    });
   };
 
-  const handleRecordBankAttempt = async (
-    subjectId: SubjectId,
-    result: AssessmentResult
-  ) => {
-    const attemptId = `qb-${Date.now()}`;
-    const fallbackLesson =
-      lessons.find((l) => l.subjectId === subjectId)?.id ?? lessons[0].id;
-
-    const newAttempt: ExamAttempt = {
-      id: attemptId,
-      userId: user?.uid ?? 'guest',
-      lessonId: fallbackLesson,
-      subjectId,
-      mode: 'question_bank',
-      totalQuestions: result.totalQuestions,
-      correctCount: result.correctCount,
-      scorePercent: result.scorePercent,
-      createdAtIso: new Date().toISOString(),
-    };
-    setAttempts((prev) => [newAttempt, ...prev]);
-
-    if (user) {
-      await recordExamAttempt(user.uid, {
-        attemptId,
-        lessonId: fallbackLesson,
-        subjectId,
-        mode: 'question_bank',
-        totalQuestions: result.totalQuestions,
-        correctCount: result.correctCount,
-        scorePercent: result.scorePercent,
-      });
-    }
+  const handleServerAttemptRecorded = (response: ExamSubmitResponse) => {
+    setAttempts((prev) => {
+      const filtered = prev.filter((a) => a.id !== response.attempt.id);
+      return [response.attempt, ...filtered];
+    });
   };
 
   const handleSeedFirestore = async () => {
@@ -552,6 +559,8 @@ export default function App() {
               lessonQuestions={activeLessonQuestions}
               sources={sources}
               progress={progressMap[activeLesson.id]}
+              isAuthenticated={Boolean(user)}
+              onSignIn={() => void handleSignIn()}
               onBackToSubject={() => {
                 setSelectedSubjectId(activeSubject.id);
                 setActiveRoute('subjects');
@@ -569,7 +578,7 @@ export default function App() {
               onSaveNotes={async (l, notes) => {
                 await upsertProgress(l, { notesAr: notes });
               }}
-              onSubmitLessonExam={handleSubmitLessonExam}
+              onServerExamCompleted={handleServerExamCompleted}
               onAskTutorForLesson={(l) => {
                 setTutorLessonId(l.id);
                 setActiveRoute('tutor');
@@ -583,7 +592,9 @@ export default function App() {
               units={units}
               lessons={lessons}
               questions={questions}
-              onRecordBankAttempt={handleRecordBankAttempt}
+              isAuthenticated={Boolean(user)}
+              onSignIn={() => void handleSignIn()}
+              onServerAttemptRecorded={handleServerAttemptRecorded}
             />
           )}
 
@@ -593,7 +604,69 @@ export default function App() {
               units={units}
               lessons={lessons}
               initialLessonId={tutorLessonId ?? activeLesson.id}
+              isAuthenticated={Boolean(user)}
+              isAdminUser={isAdminUser}
+              onSignIn={() => void handleSignIn()}
             />
+          )}
+
+          {activeRoute === 'google_drive' && (
+            <GoogleDriveManager
+              user={user}
+              lessons={lessons}
+              onSignIn={() => void handleSignIn()}
+            />
+          )}
+
+          {activeRoute === 'diploma_exams' && (
+            <DiplomaExamHub
+              subjects={subjects}
+              isAdminUser={isAdminUser}
+              onStartSimulation={(blueprintId) => {
+                setActiveRoute('question_bank');
+              }}
+            />
+          )}
+
+          {activeRoute === 'intelligence' && (
+            <StudentIntelligenceDashboard
+              userId={user?.uid ?? 'guest-student'}
+              subjects={subjects}
+              lessons={lessons}
+              attempts={attempts}
+              progressMap={progressMap}
+              objectives={objectives}
+              onOpenLesson={handleOpenLesson}
+              onOpenQuestionBank={() => setActiveRoute('question_bank')}
+              onNavigateTab={(tab) => setActiveRoute(tab as AppRoute)}
+            />
+          )}
+
+          {activeRoute === 'planner' && (
+            <StudyPlannerView
+              userId={user?.uid ?? 'guest-student'}
+              subjects={subjects}
+              lessons={lessons}
+              onOpenLesson={handleOpenLesson}
+              onOpenQuestionBank={() => setActiveRoute('question_bank')}
+            />
+          )}
+
+          {activeRoute === 'revision' && (
+            <SmartRevisionView
+              subjects={subjects}
+              lessons={lessons}
+              onOpenLesson={handleOpenLesson}
+              onOpenQuestionBank={() => setActiveRoute('question_bank')}
+            />
+          )}
+
+          {activeRoute === 'goals' && (
+            <StudentGoalsView userId={user?.uid ?? 'guest-student'} />
+          )}
+
+          {activeRoute === 'reports' && (
+            <StudentReportsView subjects={subjects} />
           )}
 
           {activeRoute === 'coverage_cms' && (
@@ -668,6 +741,7 @@ export default function App() {
                   onSaveObjective={handleSaveCmsObjective}
                   onRecordVerification={handleRecordVerification}
                   onSeedFirestore={handleSeedFirestore}
+                  onQuestionBankUpdated={refreshPublicQuestions}
                   seedingStatus={seedingStatus}
                 />
               )}

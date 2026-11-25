@@ -1,6 +1,9 @@
 import type { Lesson } from '../types/curriculum';
+import { applyLessonExpansions } from './expansions/applyLessonExpansion';
+import { PHYSICS_EXPANSIONS } from './expansions/physicsExpansions';
+import { CHEMISTRY_EXPANSIONS } from './expansions/chemistryExpansions';
 
-export const LESSONS_PART_1: Lesson[] = [
+const RAW_LESSONS_PART_1: Lesson[] = [
   // ================= PHYSICS (6 Existing Reclassified & Upgraded to 6-Part Standard) =================
   {
     id: 'phys-u1-l1',
@@ -1364,3 +1367,8 @@ export const LESSONS_PART_1: Lesson[] = [
     isPublished: true,
   },
 ];
+
+export const LESSONS_PART_1: Lesson[] = applyLessonExpansions(RAW_LESSONS_PART_1, {
+  ...PHYSICS_EXPANSIONS,
+  ...CHEMISTRY_EXPANSIONS,
+});

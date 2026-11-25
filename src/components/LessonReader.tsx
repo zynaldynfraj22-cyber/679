@@ -5,31 +5,35 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   ExternalLink,
   Lightbulb,
+  LogIn,
+  Play,
   Save,
   Sparkles,
   AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
 import type {
-  AssessmentResult,
   CurriculumSource,
+  ExamStartResponse,
+  ExamSubmitResponse,
   ExampleDifficulty,
   ExerciseTier,
+  LearningObjective,
   Lesson,
   LessonProgress,
-  Question,
+  PublicQuestion,
   Subject,
   Unit,
   VerificationStatus,
 } from '../types/curriculum';
-import {
-  gradeAssessment,
-  normalizeLessonStandard,
-  sanitizeUserNotes,
-} from '../utils/curriculumEngine';
+import { normalizeLessonStandard, sanitizeUserNotes } from '../utils/curriculumEngine';
+import { startExamSessionApi, submitExamSessionApi } from '../services/firestoreService';
 import { LessonDiagram } from './LessonDiagram';
+import { QuestionRenderer } from './QuestionRenderer';
+import { ExamResultsView } from './ExamResultsView';
 
 type LessonTab = 'explanation' | 'summary' | 'examples' | 'exercises' | 'review' | 'exam';
 
@@ -37,14 +41,17 @@ interface LessonReaderProps {
   subject: Subject;
   unit: Unit;
   lesson: Lesson;
-  lessonQuestions: Question[];
+  lessonQuestions: PublicQuestion[];
   sources?: CurriculumSource[];
+  objectives?: LearningObjective[];
   progress?: LessonProgress;
+  isAuthenticated: boolean;
+  onSignIn: () => void;
   onBackToSubject: () => void;
   onToggleBookmark: (lesson: Lesson) => Promise<void>;
   onToggleComplete: (lesson: Lesson) => Promise<void>;
   onSaveNotes: (lesson: Lesson, notes: string) => Promise<void>;
-  onSubmitLessonExam: (lesson: Lesson, result: AssessmentResult) => Promise<void>;
+  onServerExamCompleted: (lesson: Lesson, response: ExamSubmitResponse) => void;
   onAskTutorForLesson: (lesson: Lesson) => void;
 }
 
@@ -69,22 +76,33 @@ const EXERCISE_TIER_LABEL: Record<ExerciseTier, string> = {
   critical_thinking: 'تفكير ناقد',
 };
 
+function formatTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export function LessonReader({
   subject,
   unit,
   lesson,
   lessonQuestions,
   sources = [],
+  objectives = [],
   progress,
+  isAuthenticated,
+  onSignIn,
   onBackToSubject,
   onToggleBookmark,
   onToggleComplete,
   onSaveNotes,
-  onSubmitLessonExam,
+  onServerExamCompleted,
   onAskTutorForLesson,
 }: LessonReaderProps) {
   const normalizedLesson = React.useMemo(() => normalizeLessonStandard(lesson), [lesson]);
   const [activeTab, setActiveTab] = React.useState<LessonTab>('explanation');
+  const [summaryViewMode, setSummaryViewMode] = React.useState<'detailed' | 'quick'>('detailed');
+  const [exerciseTierFilter, setExerciseTierFilter] = React.useState<ExerciseTier | 'all'>('all');
   const [revealedExamples, setRevealedExamples] = React.useState<Record<string, boolean>>({});
   const [revealedExerciseAnswers, setRevealedExerciseAnswers] = React.useState<
     Record<string, boolean>
@@ -92,19 +110,41 @@ export function LessonReader({
   const [notesDraft, setNotesDraft] = React.useState(progress?.notesAr ?? '');
   const [notesSavedNotice, setNotesSavedNotice] = React.useState<string | null>(null);
 
-  // Lesson exam state
+  // Server-controlled lesson exam state
+  const [examSession, setExamSession] = React.useState<ExamStartResponse | null>(null);
   const [examAnswers, setExamAnswers] = React.useState<Record<string, string>>({});
-  const [examResult, setExamResult] = React.useState<AssessmentResult | null>(null);
+  const [examSubmitRes, setExamSubmitRes] = React.useState<ExamSubmitResponse | null>(null);
+  const [examBusy, setExamBusy] = React.useState(false);
+  const [examError, setExamError] = React.useState<string | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = React.useState(0);
+
+  const objectiveById = React.useMemo(
+    () => new Map(objectives.map((o) => [o.id, o])),
+    [objectives]
+  );
 
   React.useEffect(() => {
+    setExamSession(null);
     setExamAnswers({});
-    setExamResult(null);
+    setExamSubmitRes(null);
+    setExamError(null);
     setActiveTab('explanation');
+    setSummaryViewMode('detailed');
+    setExerciseTierFilter('all');
   }, [lesson.id]);
 
   React.useEffect(() => {
     setNotesDraft(progress?.notesAr ?? '');
   }, [lesson.id, progress?.notesAr]);
+
+  React.useEffect(() => {
+    if (!examSession || examSubmitRes) return;
+    if (secondsRemaining <= 0) return;
+    const id = window.setInterval(() => {
+      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [examSession, examSubmitRes, secondsRemaining]);
 
   const isCompleted = progress?.status === 'completed';
   const isBookmarked = Boolean(progress?.bookmarked);
@@ -135,13 +175,59 @@ export function LessonReader({
     setTimeout(() => setNotesSavedNotice(null), 3000);
   };
 
+  const handleStartLessonExam = async () => {
+    if (!isAuthenticated) {
+      setExamError('يرجى تسجيل الدخول أولاً لبدء اختبار الدرس المعتمد على الخادم.');
+      return;
+    }
+    setExamError(null);
+    setExamBusy(true);
+    try {
+      const started = await startExamSessionApi({
+        mode: 'lesson_exam',
+        titleAr: `اختبار درس: ${normalizedLesson.titleAr}`,
+        subjectId: lesson.subjectId,
+        lessonIds: [lesson.id],
+        questionCount: Math.max(1, lessonQuestions.length),
+        durationMinutes: Math.max(10, lessonQuestions.length * 3),
+        passingScorePercent: 60,
+        randomizeOrder: false,
+      });
+      setExamSession(started);
+      setExamAnswers({});
+      setExamSubmitRes(null);
+      setSecondsRemaining(started.durationSeconds);
+    } catch (err) {
+      setExamError(
+        err instanceof Error ? err.message : 'تعذر بدء جلسة اختبار الدرس على الخادم.'
+      );
+    } finally {
+      setExamBusy(false);
+    }
+  };
+
   const handleExamSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (lessonQuestions.length === 0) return;
-    const result = gradeAssessment(lessonQuestions, examAnswers);
-    setExamResult(result);
-    await onSubmitLessonExam(lesson, result);
+    if (!examSession) return;
+    setExamError(null);
+    setExamBusy(true);
+    try {
+      const response = await submitExamSessionApi({
+        sessionId: examSession.sessionId,
+        answers: examAnswers,
+      });
+      setExamSubmitRes(response);
+      onServerExamCompleted(lesson, response);
+    } catch (err) {
+      setExamError(
+        err instanceof Error ? err.message : 'تعذر تصحيح اختبار الدرس على الخادم.'
+      );
+    } finally {
+      setExamBusy(false);
+    }
   };
+
+  const displayQuestions = examSession?.questions ?? lessonQuestions;
 
   return (
     <div className="space-y-6">
@@ -275,7 +361,6 @@ export function LessonReader({
       {/* Tab 1: Section A (Introduction) + Section B (Detailed Explanation) */}
       {activeTab === 'explanation' && (
         <div className="space-y-6">
-          {/* Section A: Introduction */}
           {normalizedLesson.introduction && (
             <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
               <div>
@@ -324,7 +409,6 @@ export function LessonReader({
             </section>
           )}
 
-          {/* Section B: Detailed Explanation */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-8 space-y-8">
             <p className="text-xs font-bold text-sky-800 dark:text-sky-400">
               القسم ب · الشرح العلمي المفصل والرسوم والجداول
@@ -336,9 +420,30 @@ export function LessonReader({
                   idx > 0 ? 'pt-8 border-t border-slate-200 dark:border-slate-800' : ''
                 }
               >
-                <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white mb-3">
+                <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white mb-2">
                   {idx + 1}. {section.titleAr}
                 </h2>
+                {section.learningObjectiveIds && section.learningObjectiveIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {section.learningObjectiveIds.map((objId) => {
+                      const obj = objectiveById.get(objId);
+                      return (
+                        <span
+                          key={objId}
+                          title={obj?.statementAr}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 text-[11px] font-medium text-sky-900 dark:text-sky-300"
+                        >
+                          <span className="font-mono font-bold">{obj?.code ?? objId}</span>
+                          {obj?.statementAr && (
+                            <span className="hidden sm:inline truncate max-w-[260px]">
+                              · {obj.statementAr}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-base text-slate-700 dark:text-slate-300 leading-8 max-w-4xl mb-4">
                   {section.contentAr}
                 </p>
@@ -377,6 +482,61 @@ export function LessonReader({
                     </ul>
                   </div>
                 )}
+
+                {section.derivationsAr && section.derivationsAr.length > 0 && (
+                  <div className="my-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-1.5">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">
+                      الاشتقاقات والعلاقات المنطقية
+                    </p>
+                    <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {section.derivationsAr.map((drv, dIdx) => (
+                        <li key={dIdx}>• {drv}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {section.practicalApplicationsAr && section.practicalApplicationsAr.length > 0 && (
+                  <div className="my-4 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-1.5">
+                    <p className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                      التطبيقات العملية والحياتية
+                    </p>
+                    <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {section.practicalApplicationsAr.map((app, aIdx) => (
+                        <li key={aIdx}>• {app}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {(section.commonMisconceptionsAr?.length || section.importantNotesAr?.length) ? (
+                  <div className="my-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {section.commonMisconceptionsAr && section.commonMisconceptionsAr.length > 0 && (
+                      <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-1.5">
+                        <p className="text-xs font-bold text-rose-900 dark:text-rose-300">
+                          أخطاء ومفاهيم خاطئة شائعة
+                        </p>
+                        <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {section.commonMisconceptionsAr.map((misc, mIdx) => (
+                            <li key={mIdx}>• {misc}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {section.importantNotesAr && section.importantNotesAr.length > 0 && (
+                      <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/40 dark:bg-sky-950/20 p-4 space-y-1.5">
+                        <p className="text-xs font-bold text-sky-900 dark:text-sky-300">
+                          ملاحظات مهمة للطالب
+                        </p>
+                        <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {section.importantNotesAr.map((note, nIdx) => (
+                            <li key={nIdx}>• {note}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {section.tables &&
                   section.tables.map((tbl) => (
@@ -451,109 +611,281 @@ export function LessonReader({
         </div>
       )}
 
-      {/* Tab 2: Section C (Comprehensive Summary & Formulas) */}
+      {/* Tab 2: Section C (Comprehensive Summary & Quick Revision Toggle + Formulas) */}
       {activeTab === 'summary' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold text-sky-800 dark:text-sky-400 mb-1">
-                القسم ج · الملخص الشامل والمراجعة السريعة
+              <p className="text-xs font-bold text-sky-800 dark:text-sky-400">
+                القسم ج · نظام الملخص الشامل والمراجعة السريعة
               </p>
-              <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
-                الملخص العلمي المفصل
-              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                اختر بين الشرح التلخيصي المتكامل أو بطاقة المراجعة السريعة المركزة قبل الاختبار.
+              </p>
             </div>
-
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-7">
-              {normalizedLesson.comprehensiveSummary?.detailedSummaryAr ??
-                normalizedLesson.summaryAr}
-            </p>
-
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
-                نقاط المراجعة السريعة
-              </h3>
-              <ul className="space-y-2.5 text-sm text-slate-700 dark:text-slate-300">
-                {(
-                  normalizedLesson.comprehensiveSummary?.quickRevisionAr ??
-                  normalizedLesson.keyPointsAr
-                ).map((pt, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <span className="font-mono text-xs font-bold text-sky-700 dark:text-sky-400 mt-1 tabular-nums">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="leading-relaxed">{pt}</span>
-                  </li>
-                ))}
-              </ul>
+            <div
+              role="group"
+              aria-label="نمط عرض الملخص"
+              className="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg self-start sm:self-auto"
+            >
+              <button
+                type="button"
+                aria-pressed={summaryViewMode === 'detailed'}
+                onClick={() => setSummaryViewMode('detailed')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  summaryViewMode === 'detailed'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                الملخص الشامل المفصل
+              </button>
+              <button
+                type="button"
+                aria-pressed={summaryViewMode === 'quick'}
+                onClick={() => setSummaryViewMode('quick')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  summaryViewMode === 'quick'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                بطاقة المراجعة السريعة
+              </button>
             </div>
+          </div>
 
-            {normalizedLesson.comprehensiveSummary &&
-              normalizedLesson.comprehensiveSummary.keyTermsAr.length > 0 && (
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
-                    المصطلحات الأساسية
-                  </h3>
-                  <dl className="space-y-2 text-xs">
-                    {normalizedLesson.comprehensiveSummary.keyTermsAr.map((term, tIdx) => (
-                      <div key={tIdx} className="leading-relaxed">
-                        <dt className="inline font-bold text-slate-900 dark:text-white">
-                          {term.termAr}:{' '}
-                        </dt>
-                        <dd className="inline text-slate-600 dark:text-slate-300">
-                          {term.definitionAr}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
+          {summaryViewMode === 'detailed' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
+                <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
+                  الملخص العلمي المفصل
+                </h2>
 
-            {normalizedLesson.comprehensiveSummary &&
-              normalizedLesson.comprehensiveSummary.memorizePointsAr.length > 0 && (
+                <p className="text-sm text-slate-700 dark:text-slate-300 leading-7">
+                  {normalizedLesson.comprehensiveSummary?.detailedSummaryAr ??
+                    normalizedLesson.summaryAr}
+                </p>
+
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
-                    نقاط يجب تثبيتها قبل الاختبار
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+                    نقاط المراجعة السريعة
                   </h3>
-                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
-                    {normalizedLesson.comprehensiveSummary.memorizePointsAr.map((mp, mIdx) => (
-                      <li key={mIdx}>• {mp}</li>
+                  <ul className="space-y-2.5 text-sm text-slate-700 dark:text-slate-300">
+                    {(
+                      normalizedLesson.comprehensiveSummary?.quickRevisionAr ??
+                      normalizedLesson.keyPointsAr
+                    ).map((pt, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="font-mono text-xs font-bold text-sky-700 dark:text-sky-400 mt-1 tabular-nums">
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <span className="leading-relaxed">{pt}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
-              )}
-          </div>
 
-          <div className="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
-            <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
-              القوانين والعلاقات الأساسية
-            </h2>
-            {normalizedLesson.keyFormulas.length === 0 ? (
-              <p className="text-sm text-slate-500">لا توجد قوانين رياضية محددة لهذا الدرس.</p>
-            ) : (
-              <div className="space-y-4">
-                {normalizedLesson.keyFormulas.map((formula, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {formula.labelAr}
-                      </span>
-                      <span>الوحدة: {formula.unit}</span>
+                {normalizedLesson.comprehensiveSummary &&
+                  normalizedLesson.comprehensiveSummary.keyTermsAr.length > 0 && (
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                        المصطلحات الأساسية
+                      </h3>
+                      <dl className="space-y-2 text-xs">
+                        {normalizedLesson.comprehensiveSummary.keyTermsAr.map((term, tIdx) => (
+                          <div key={tIdx} className="leading-relaxed">
+                            <dt className="inline font-bold text-slate-900 dark:text-white">
+                              {term.termAr}:{' '}
+                            </dt>
+                            <dd className="inline text-slate-600 dark:text-slate-300">
+                              {term.definitionAr}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
                     </div>
-                    <div className="formula-ltr bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md px-4 py-2.5 text-sm font-semibold text-sky-900 dark:text-sky-300 overflow-x-auto">
-                      {formula.expression}
+                  )}
+
+                {normalizedLesson.comprehensiveSummary &&
+                  normalizedLesson.comprehensiveSummary.memorizePointsAr.length > 0 && (
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                        نقاط يجب تثبيتها قبل الاختبار
+                      </h3>
+                      <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                        {normalizedLesson.comprehensiveSummary.memorizePointsAr.map((mp, mIdx) => (
+                          <li key={mIdx}>• {mp}</li>
+                        ))}
+                      </ul>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      {formula.variablesAr}
-                    </p>
-                  </div>
-                ))}
+                  )}
               </div>
-            )}
-          </div>
+
+              <div className="lg:col-span-6 space-y-5">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+                  <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
+                    القوانين والعلاقات الأساسية
+                  </h2>
+                  {normalizedLesson.keyFormulas.length === 0 ? (
+                    <p className="text-sm text-slate-500">لا توجد قوانين رياضية محددة لهذا الدرس.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {normalizedLesson.keyFormulas.map((formula, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {formula.labelAr}
+                            </span>
+                            <span>الوحدة: {formula.unit}</span>
+                          </div>
+                          <div className="formula-ltr bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md px-4 py-2.5 text-sm font-semibold text-sky-900 dark:text-sky-300 overflow-x-auto">
+                            {formula.expression}
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            {formula.variablesAr}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {normalizedLesson.comprehensiveSummary?.importantLawsAr &&
+                    normalizedLesson.comprehensiveSummary.importantLawsAr.length > 0 && (
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+                        <h3 className="text-xs font-bold text-sky-800 dark:text-sky-400">
+                          خلاصة القوانين المختصرة
+                        </h3>
+                        <ul className="space-y-1 text-xs font-mono text-slate-800 dark:text-slate-200">
+                          {normalizedLesson.comprehensiveSummary.importantLawsAr.map((law, idx) => (
+                            <li key={idx} dir="ltr" className="text-right">
+                              {law}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                </div>
+
+                {normalizedLesson.comprehensiveSummary?.comparisonsAr &&
+                  normalizedLesson.comprehensiveSummary.comparisonsAr.length > 0 && (
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-3">
+                      <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                        مقارنات مفاهيمية حاسمة
+                      </h3>
+                      <div className="space-y-3">
+                        {normalizedLesson.comprehensiveSummary.comparisonsAr.map((cmp, cIdx) => (
+                          <div
+                            key={cIdx}
+                            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3.5 space-y-2 text-xs"
+                          >
+                            <p className="font-bold text-sky-900 dark:text-sky-300">{cmp.topicAr}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-2.5 text-slate-700 dark:text-slate-200 leading-relaxed">
+                                {cmp.pointAAr}
+                              </div>
+                              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-2.5 text-slate-700 dark:text-slate-200 leading-relaxed">
+                                {cmp.pointBAr}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {normalizedLesson.comprehensiveSummary?.examNotesAr &&
+                  normalizedLesson.comprehensiveSummary.examNotesAr.length > 0 && (
+                    <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 space-y-2">
+                      <h3 className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                        توجيهات الامتحان النهائي (منهج عُمان)
+                      </h3>
+                      <ul className="space-y-1.5 text-xs text-slate-800 dark:text-amber-100 leading-relaxed">
+                        {normalizedLesson.comprehensiveSummary.examNotesAr.map((note, idx) => (
+                          <li key={idx}>• {note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+                <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                  أهم نقاط المراجعة المركزة
+                </h2>
+                <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
+                  {(
+                    normalizedLesson.comprehensiveSummary?.quickRevisionAr ??
+                    normalizedLesson.keyPointsAr
+                  ).map((pt, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="font-mono text-xs font-bold text-sky-700 dark:text-sky-400 mt-1 tabular-nums">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+                {normalizedLesson.comprehensiveSummary?.memorizePointsAr &&
+                  normalizedLesson.comprehensiveSummary.memorizePointsAr.length > 0 && (
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                      <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1.5">
+                        تثبيت سريع قبل القاعة
+                      </p>
+                      <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+                        {normalizedLesson.comprehensiveSummary.memorizePointsAr.map((mp, idx) => (
+                          <li key={idx}>✓ {mp}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+                <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                  بطاقة القوانين والمقارنات السريعة
+                </h2>
+                <div className="space-y-2">
+                  {normalizedLesson.keyFormulas.map((formula, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3"
+                    >
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {formula.labelAr} ({formula.unit})
+                      </p>
+                      <p className="formula-ltr text-xs font-mono font-bold text-sky-900 dark:text-sky-300">
+                        {formula.expression}
+                      </p>
+                    </div>
+                  ))}
+                  {normalizedLesson.comprehensiveSummary?.importantLawsAr?.map((law, idx) => (
+                    <div
+                      key={`imp-${idx}`}
+                      dir="ltr"
+                      className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 px-3 py-2 text-xs font-mono text-right text-slate-800 dark:text-slate-200"
+                    >
+                      {law}
+                    </div>
+                  ))}
+                </div>
+                {normalizedLesson.comprehensiveSummary?.examNotesAr &&
+                  normalizedLesson.comprehensiveSummary.examNotesAr.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs text-amber-950 dark:text-amber-100 space-y-1">
+                      <p className="font-bold">تنبيهات الاختبار:</p>
+                      {normalizedLesson.comprehensiveSummary.examNotesAr.map((note, idx) => (
+                        <p key={idx}>• {note}</p>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -563,6 +895,9 @@ export function LessonReader({
           {normalizedLesson.solvedExamples.map((ex) => {
             const isExpanded = revealedExamples[ex.id] ?? true;
             const diffLabel = ex.difficulty ? EXAMPLE_DIFF_LABEL[ex.difficulty] : 'قياسي';
+            const linkedObj = ex.learningObjectiveId
+              ? objectiveById.get(ex.learningObjectiveId)
+              : undefined;
             return (
               <article
                 key={ex.id}
@@ -570,12 +905,31 @@ export function LessonReader({
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1">
                       <span>مثال محلول</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-semibold text-sky-800 dark:text-sky-400">
                         المستوى: {diffLabel}
                       </span>
+                      {linkedObj && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span
+                            title={linkedObj.statementAr}
+                            className="font-mono font-semibold text-slate-700 dark:text-slate-300"
+                          >
+                            الهدف: {linkedObj.code}
+                          </span>
+                        </>
+                      )}
+                      {ex.conceptOrLawAr && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-slate-600 dark:text-slate-300">
+                            {ex.conceptOrLawAr}
+                          </span>
+                        </>
+                      )}
                     </div>
                     <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white mb-2">
                       {ex.titleAr}
@@ -645,6 +999,31 @@ export function LessonReader({
                         {ex.finalAnswerAr}
                       </p>
                     </div>
+
+                    {(ex.whyMethodWorksAr || ex.commonMistakeAr) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {ex.whyMethodWorksAr && (
+                          <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-3 text-xs space-y-1">
+                            <p className="font-bold text-sky-900 dark:text-sky-300">
+                              لماذا تنجح هذه الطريقة؟
+                            </p>
+                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                              {ex.whyMethodWorksAr}
+                            </p>
+                          </div>
+                        )}
+                        {ex.commonMistakeAr && (
+                          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs space-y-1">
+                            <p className="font-bold text-amber-900 dark:text-amber-300">
+                              خطأ امتحاني شائع يُنصح بتجنبه
+                            </p>
+                            <p className="text-slate-700 dark:text-amber-100 leading-relaxed">
+                              {ex.commonMistakeAr}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </article>
@@ -653,57 +1032,130 @@ export function LessonReader({
         </div>
       )}
 
-      {/* Tab 4: Section E (Practice Exercises & Personal Notes) */}
+      {/* Tab 4: Section E (Practice Exercises with 5-tier Filter & Personal Notes) */}
       {activeTab === 'exercises' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 space-y-4">
-            <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
-              تمارين الدرس المتدرجة للتحقق الذاتي
-            </h2>
-            {normalizedLesson.exercises.map((item, idx) => {
-              const showAns = Boolean(revealedExerciseAnswers[item.id]);
-              const tierLabel = item.tier ? EXERCISE_TIER_LABEL[item.tier] : 'تمرين';
-              return (
-                <div
-                  key={item.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3"
+            <div className="flex flex-col gap-3">
+              <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
+                تمارين الدرس المتدرجة للتحقق الذاتي ({normalizedLesson.exercises.length})
+              </h2>
+              <div
+                role="group"
+                aria-label="تصفية التمارين حسب المستوى"
+                className="flex flex-wrap items-center gap-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => setExerciseTierFilter('all')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                    exerciseTierFilter === 'all'
+                      ? 'bg-sky-800 text-white border-sky-800 dark:bg-sky-600 dark:border-sky-600'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
                 >
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>تمرين {idx + 1}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-semibold text-sky-800 dark:text-sky-400">
-                      المستوى: {tierLabel}
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
-                    {item.promptAr}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>تلميح: {item.hintAr}</span>
-                  </p>
-                  <div>
+                  الكل ({normalizedLesson.exercises.length})
+                </button>
+                {(
+                  ['easy', 'medium', 'difficult', 'application', 'critical_thinking'] as ExerciseTier[]
+                ).map((tier) => {
+                  const count = normalizedLesson.exercises.filter((e) => e.tier === tier).length;
+                  return (
                     <button
+                      key={tier}
                       type="button"
-                      onClick={() =>
-                        setRevealedExerciseAnswers((prev) => ({
-                          ...prev,
-                          [item.id]: !showAns,
-                        }))
-                      }
-                      className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      onClick={() => setExerciseTierFilter(tier)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                        exerciseTierFilter === tier
+                          ? 'bg-sky-800 text-white border-sky-800 dark:bg-sky-600 dark:border-sky-600'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
                     >
-                      {showAns ? 'إخفاء الإجابة النموذجية' : 'عرض الإجابة النموذجية'}
+                      {EXERCISE_TIER_LABEL[tier]} ({count})
                     </button>
-                  </div>
-                  {showAns && (
-                    <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                      الإجابة: {item.answerAr}
+                  );
+                })}
+              </div>
+            </div>
+
+            {normalizedLesson.exercises
+              .filter(
+                (item) =>
+                  exerciseTierFilter === 'all' || item.tier === exerciseTierFilter
+              )
+              .map((item, idx) => {
+                const showAns = Boolean(revealedExerciseAnswers[item.id]);
+                const tierLabel = item.tier ? EXERCISE_TIER_LABEL[item.tier] : 'تمرين';
+                const linkedObj = item.learningObjectiveId
+                  ? objectiveById.get(item.learningObjectiveId)
+                  : undefined;
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>تمرين {idx + 1}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-semibold text-sky-800 dark:text-sky-400">
+                          المستوى: {tierLabel}
+                        </span>
+                        {linkedObj && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span
+                              title={linkedObj.statementAr}
+                              className="font-mono text-slate-600 dark:text-slate-300"
+                            >
+                              {linkedObj.code}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {typeof item.marks === 'number' && (
+                        <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
+                          {item.marks === 1 ? 'درجة واحدة' : `${item.marks} درجات`}
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                      {item.promptAr}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>تلميح: {item.hintAr}</span>
+                    </p>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRevealedExerciseAnswers((prev) => ({
+                            ...prev,
+                            [item.id]: !showAns,
+                          }))
+                        }
+                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        {showAns ? 'إخفاء الإجابة النموذجية' : 'عرض الإجابة النموذجية'}
+                      </button>
+                    </div>
+                    {showAns && (
+                      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 space-y-2 text-sm">
+                        <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                          الإجابة: {item.answerAr}
+                        </p>
+                        {item.explanationAr && (
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed pt-1 border-t border-slate-200 dark:border-slate-700">
+                            <strong>تفسير الحل: </strong>
+                            {item.explanationAr}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
 
           <form
@@ -837,145 +1289,126 @@ export function LessonReader({
         </div>
       )}
 
-      {/* Tab 6: Lesson Examination */}
+      {/* Tab 6: Server-Verified Lesson Examination */}
       {activeTab === 'exam' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">
-                اختبار تقييم الدرس
+                اختبار تقييم الدرس المعتمد
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                أسئلة مستمدة من بنك الأسئلة المركزي ومربوطة بأهداف هذا الدرس.
+                أسئلة معتمدة ومربوطة بأهداف هذا الدرس، تُصحح وتُحفظ نتيجتها حصرياً على الخادم.
               </p>
             </div>
-            {examResult && (
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-lg px-4 py-2 text-left">
-                <p className="text-xs text-slate-500 dark:text-slate-400">النتيجة المحققة</p>
-                <p className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-                  {examResult.scorePercent}% ({examResult.correctCount}/{examResult.totalQuestions})
-                </p>
+
+            {examSession && !examSubmitRes ? (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2 font-mono text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                <Clock className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+                <span>{formatTimer(secondsRemaining)}</span>
               </div>
+            ) : (
+              !examSession &&
+              lessonQuestions.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {isAuthenticated ? (
+                    <button
+                      type="button"
+                      disabled={examBusy}
+                      onClick={() => void handleStartLessonExam()}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>
+                        {examBusy ? 'جاري البدء...' : 'بدء اختبار الدرس المعتمد'}
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onSignIn}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>سجّل دخولك لبدء الاختبار</span>
+                    </button>
+                  )}
+                </div>
+              )
             )}
           </div>
 
-          {lessonQuestions.length === 0 ? (
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              لا توجد أسئلة مضافة لهذا الدرس حتى الآن في بنك الأسئلة.
-            </p>
+          {examError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 p-3.5 text-xs text-rose-900 dark:text-rose-200"
+            >
+              {examError}
+            </div>
+          )}
+
+          {examSubmitRes && (
+            <ExamResultsView
+              titleAr={`نتيجة اختبار: ${normalizedLesson.titleAr}`}
+              result={examSubmitRes.result}
+              persistedToFirestore={examSubmitRes.persistedToFirestore}
+              persistenceNoticeAr={examSubmitRes.persistenceNoticeAr}
+              onRetry={() => {
+                setExamSession(null);
+                setExamAnswers({});
+                setExamSubmitRes(null);
+              }}
+            />
+          )}
+
+          {displayQuestions.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                لا توجد أسئلة معتمدة لهذا الدرس حتى الآن في بنك الأسئلة. يقوم المشرف بمراجعة الأسئلة
+                غير الموثقة لإتاحتها قريباً.
+              </p>
+            </div>
           ) : (
-            <form onSubmit={(e) => void handleExamSubmit(e)} className="space-y-6">
-              {lessonQuestions.map((q, index) => {
-                const graded = examResult?.breakdown.find((b) => b.questionId === q.id);
+            <form onSubmit={(e) => void handleExamSubmit(e)} className="space-y-4">
+              {!examSession && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                  معاينة أسئلة الدرس ({displayQuestions.length}). اضغط على «بدء اختبار الدرس المعتمد»
+                  أعلاه لتفعيل الإجابة والتصحيح السحابي.
+                </div>
+              )}
+
+              {displayQuestions.map((q, index) => {
+                const graded = examSubmitRes?.result.breakdown.find(
+                  (b) => b.questionId === q.id
+                );
                 return (
-                  <div
+                  <QuestionRenderer
                     key={q.id}
-                    className="border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4"
-                  >
-                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                      <span>
-                        سؤال {index + 1} · {q.marks} درجات
-                      </span>
-                      <span>
-                        {q.questionType === 'mcq' ? 'اختيار من متعدد' : 'مسألة رقمية'}
-                      </span>
-                    </div>
-
-                    <p className="text-base font-semibold text-slate-900 dark:text-white leading-relaxed">
-                      {q.promptAr}
-                    </p>
-
-                    {q.questionType === 'mcq' && q.optionsAr ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {q.optionsAr.map((opt) => {
-                          const selected = examAnswers[q.id] === opt;
-                          return (
-                            <label
-                              key={opt}
-                              className={`flex items-center gap-3 p-3 rounded-lg border text-sm cursor-pointer transition-colors ${
-                                selected
-                                  ? 'border-sky-700 bg-sky-50 text-sky-950 dark:bg-sky-950/50 dark:border-sky-500 dark:text-sky-100'
-                                  : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name={`exam-${q.id}`}
-                                value={opt}
-                                checked={selected}
-                                onChange={() =>
-                                  setExamAnswers((prev) => ({ ...prev, [q.id]: opt }))
-                                }
-                                className="accent-sky-800"
-                              />
-                              <span>{opt}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div>
-                        <label
-                          htmlFor={`input-${q.id}`}
-                          className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5"
-                        >
-                          أدخل القيمة النهائية:
-                        </label>
-                        <input
-                          id={`input-${q.id}`}
-                          type="text"
-                          value={examAnswers[q.id] ?? ''}
-                          onChange={(e) =>
-                            setExamAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                          }
-                          placeholder="مثال: 4 أو 2.8"
-                          className="w-full sm:w-64 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-sm font-mono text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    )}
-
-                    {graded && (
-                      <div
-                        className={`rounded-lg p-3.5 border text-sm space-y-1 ${
-                          graded.isCorrect
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-200'
-                            : 'bg-rose-50 border-rose-200 text-rose-950 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-200'
-                        }`}
-                      >
-                        <p className="font-bold">
-                          {graded.isCorrect
-                            ? 'إجابة صحيحة'
-                            : `إجابة غير صحيحة — الإجابة الصحيحة: ${graded.correctAnswer}`}
-                        </p>
-                        <p className="text-xs leading-relaxed opacity-90">
-                          {graded.explanationAr}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                    question={q}
+                    index={index}
+                    subjectTitleAr={subject.titleAr}
+                    answer={examAnswers[q.id] ?? ''}
+                    onChangeAnswer={(val) =>
+                      setExamAnswers((prev) => ({ ...prev, [q.id]: val }))
+                    }
+                    disabled={!examSession || Boolean(examSubmitRes)}
+                    gradedResult={graded}
+                    fieldPrefix="lesson-exam"
+                  />
                 );
               })}
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 cursor-pointer"
-                >
-                  تصحيح وحفظ نتيجة الاختبار
-                </button>
-                {examResult && (
+              {examSession && !examSubmitRes && (
+                <div className="flex items-center gap-3 pt-2">
                   <button
-                    type="button"
-                    onClick={() => {
-                      setExamAnswers({});
-                      setExamResult(null);
-                    }}
-                    className="px-4 py-2.5 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                    type="submit"
+                    disabled={examBusy}
+                    className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-sky-800 text-white hover:bg-sky-900 disabled:opacity-50 cursor-pointer"
                   >
-                    إعادة المحاولة
+                    {examBusy ? 'جاري التصحيح على الخادم...' : 'تصحيح وحفظ نتيجة الاختبار'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </form>
           )}
         </div>

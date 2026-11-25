@@ -7,8 +7,15 @@ export type AppRoute =
   | 'subjects'
   | 'lesson'
   | 'question_bank'
+  | 'diploma_exams'
+  | 'intelligence'
+  | 'planner'
+  | 'revision'
+  | 'goals'
+  | 'reports'
   | 'tutor'
-  | 'coverage_cms';
+  | 'coverage_cms'
+  | 'google_drive';
 
 interface TopNavProps {
   activeRoute: AppRoute;
@@ -37,8 +44,15 @@ export function TopNav({
     { id: 'dashboard', label: 'لوحة الطالب' },
     { id: 'subjects', label: 'المواد الدراسية' },
     { id: 'question_bank', label: 'بنك الأسئلة' },
+    { id: 'diploma_exams', label: 'الامتحانات الوزارية' },
+    { id: 'intelligence', label: 'الذكاء الشخصي' },
+    { id: 'planner', label: 'خطة الدراسة' },
+    { id: 'revision', label: 'المراجعة الذكية' },
+    { id: 'goals', label: 'الأهداف' },
+    { id: 'reports', label: 'التقارير' },
     { id: 'tutor', label: 'المعلم الذكي' },
-    { id: 'coverage_cms', label: 'تغطية المنهج و CMS' },
+    { id: 'google_drive', label: 'Google Drive' },
+    { id: 'coverage_cms', label: 'التغطية و CMS' },
   ];
 
   const handleSelect = (route: AppRoute) => {

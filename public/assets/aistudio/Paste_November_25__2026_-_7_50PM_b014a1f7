@@ -1,0 +1,1248 @@
+# STUDY CORE — PHASE 6
+# OMAN GENERAL EDUCATION DIPLOMA EXAMINATION SIMULATOR
+# ADVANCED MOCK EXAMINATIONS & FINAL EXAM PREPARATION SYSTEM
+
+==================================================
+1. PROJECT IDENTITY
+==================================================
+
+Application: STUDY CORE
+
+Country: Sultanate of Oman.
+Academic Year: 2026–2027.
+Grade: 12.
+Track: Scientific.
+Language: Arabic.
+Interface: Full RTL.
+
+You are continuing the existing STUDY CORE application.
+
+Phase 4 and Phase 5 have reportedly been completed.
+
+Phase 4 includes:
+- Comprehensive educational content.
+- Four scientific subjects.
+- Extensive lesson question banks.
+- Five difficulty levels.
+- Twelve question types.
+- Gemini generation.
+- Examination engine.
+- Automatic and manual grading.
+- Administrative CMS.
+- Question and lesson coverage dashboards.
+- Google Drive integration.
+
+Phase 5 includes:
+- Personalized student dashboard.
+- Learning objective mastery.
+- Weakness detection.
+- Spaced repetition.
+- Daily and weekly study planning.
+- Student goals and achievements.
+- Performance reports.
+
+Your mission is to build Phase 6:
+
+A professional simulation system for Oman's General Education Diploma examinations.
+
+IMPORTANT:
+
+This is NOT a new application.
+
+Do not rebuild previous phases.
+
+Do not duplicate existing examination functionality unnecessarily.
+
+Build on existing components, databases, question banks, grading services, and student intelligence systems.
+
+==================================================
+2. FIRST STEP — PROJECT AUDIT
+==================================================
+
+Before implementation:
+
+1. Inspect the actual Phase 4 implementation.
+2. Inspect the actual Phase 5 implementation.
+3. Verify the existing examination engine.
+4. Verify the question bank.
+5. Verify server-side grading.
+6. Verify student performance records.
+7. Verify Firebase security.
+8. Identify reusable examination components.
+9. Identify existing Google Drive integration.
+10. Identify existing official and supplementary examination sources.
+
+Create an implementation report.
+
+Separate:
+
+- Completed and verified.
+- Implemented but not verified.
+- Missing.
+- Requires configuration.
+
+Preserve all existing data and functionality.
+
+Do not replace previous implementations unnecessarily.
+
+==================================================
+3. OFFICIAL EXAMINATION REFERENCE DOCUMENTS
+==================================================
+
+Use the latest official Omani examination and assessment documents.
+
+The initial authoritative references for academic year 2026–2027 are:
+
+A. Science assessment document:
+
+https://site.moe.gov.om/images/library/file/Book331821.pdf
+
+Title:
+وثيقة تقويم تعلم الطلبة في مواد العلوم (11-12) للعام 2026-2027.
+
+B. Mathematics assessment document:
+
+https://site.moe.gov.om/images/library/file/Book911217.pdf
+
+Title:
+وثيقة تقويم تعلم الطلبة في مادة الرياضيات للصفوف (11-12) — سبتمبر 2026.
+
+C. Official Ministry archive of General Education Diploma examinations:
+
+https://home.moe.gov.om/ar/zawity/212
+
+Use the Ministry archive to identify previous examination papers and available answer keys.
+
+Also inspect any newer official documents available in the Ministry's publication library.
+
+IMPORTANT:
+
+- Verify the document's academic year.
+- Verify its applicability to Grade 12.
+- Verify whether it applies to the scientific track.
+- Preserve source page references.
+- Never rely on old examination specifications when a newer official specification exists.
+- Do not assume that previous-year question distributions are identical to 2026–2027.
+
+The official documents must be stored in a versioned examination specification registry.
+
+==================================================
+4. OFFICIAL SCIENCE EXAMINATION BLUEPRINT
+==================================================
+
+Use the 2026–2027 Science assessment document as the initial specification for:
+
+- Physics.
+- Chemistry.
+- Biology.
+
+The Grade 12 end-of-semester written science examination specifications include:
+
+Total marks: 70.
+Duration: 3 hours.
+Number of examination items: 35–45.
+
+Assessment objectives:
+
+AO1 — Knowledge and Understanding:
+24 marks.
+
+AO2 — Application and Reasoning:
+46 marks.
+
+Difficulty distribution:
+
+Low demand:
+28 marks (40%).
+
+Medium demand:
+28 marks (40%).
+
+High demand:
+14 marks (20%).
+
+Question requirements:
+
+- Twelve multiple-choice items.
+- One mark per multiple-choice item.
+- At least two extended-response items.
+- Remaining marks distributed among short-response items.
+- All questions must follow the verified examination specification.
+
+Create separate examination blueprints for Physics, Chemistry, and Biology.
+
+Do not assume that the same chapter distribution applies to all three subjects.
+
+### Scientific assessment objectives
+
+Preserve the distinction between:
+
+AO1:
+Knowledge and understanding.
+
+AO2:
+Application, analysis and reasoning.
+
+AO3:
+Scientific inquiry and practical skills.
+
+Do not automatically add AO3 marks to the 70-mark written examination.
+
+If practical and scientific inquiry assessments are implemented, create a separate practice mode based on the applicable official assessment document.
+
+Keep practical skills training distinct from the written final examination.
+
+==================================================
+5. OFFICIAL ADVANCED MATHEMATICS EXAMINATION BLUEPRINT
+==================================================
+
+Use the September 2026 official mathematics assessment document.
+
+The Grade 12 Advanced Mathematics final examination specifications are:
+
+Total marks: 70.
+Duration: 3 hours.
+Number of examination items: 25–30.
+One final examination paper per semester.
+All questions are compulsory.
+
+Multiple choice:
+
+- Twelve questions.
+- One mark per question.
+- They may appear anywhere in the paper.
+
+Short response:
+
+- Free-response questions.
+- Each carries 2–4 marks.
+
+Extended response:
+
+- At least two questions.
+- Each carries 5–6 marks.
+
+Assessment objective distribution:
+
+AO1 — Knowledge and Understanding:
+35 marks (50%).
+
+AO2 — Application and Reasoning:
+35 marks (50%).
+
+Difficulty distribution within EACH assessment objective:
+
+Low demand:
+14 marks (40%).
+
+Medium demand:
+14 marks (40%).
+
+High demand:
+7 marks (20%).
+
+The examination generator must preserve the total of 70 marks.
+
+### Advanced Mathematics unit weight distribution
+
+FIRST SEMESTER:
+
+- Circular Measure: 13 marks.
+- Trigonometry: 22 marks.
+- Introduction to Limits and Continuity: 16 marks.
+- Differentiation: 19 marks.
+- Total: 70 marks.
+
+SECOND SEMESTER:
+
+- Further Differentiation: 14 marks.
+- Integration: 20 marks.
+- Complex Numbers: 22 marks.
+- Normal Distribution: 14 marks.
+- Total: 70 marks.
+
+Verify that existing curriculum unit records map correctly to the official unit names.
+
+Do not match units by numerical order alone.
+
+### Mathematics examination item types
+
+Support the official mathematics formats:
+
+- Multiple choice.
+- Drawing and plotting points.
+- Short response.
+- Extended response.
+- Written mathematical explanation.
+
+Use the exact official marking expectations where the source provides them.
+
+==================================================
+6. SCIENCE UNIT WEIGHT DISTRIBUTION
+==================================================
+
+Use the 2026–2027 official Science assessment document to configure subject-specific unit weight distributions.
+
+### BIOLOGY
+
+Semester 1:
+
+- Unit 1: 20%.
+- Unit 2: 23%.
+- Unit 3: 20%.
+- Unit 4: 20%.
+- Unit 5: 17%.
+
+Semester 2:
+
+- Unit 6: 26%.
+- Unit 7: 26%.
+- Unit 8: 26%.
+- Unit 9: 22%.
+
+### PHYSICS
+
+Semester 1:
+
+- Unit 1: 18%.
+- Unit 2: 19%.
+- Unit 3: 23%.
+- Unit 4: 17%.
+- Unit 5: 23%.
+
+Semester 2:
+
+- Unit 6: 19%.
+- Unit 7: 26%.
+- Unit 8: 31%.
+- Unit 9: 24%.
+
+### CHEMISTRY
+
+Semester 1:
+
+- Unit 1: 32%.
+- Unit 2: 24%.
+- Unit 3: 19%.
+- Unit 4: 25%.
+
+Semester 2:
+
+- Unit 5: 30%.
+- Unit 6: 24%.
+- Unit 7: 17%.
+- Unit 8: 29%.
+
+IMPORTANT:
+
+These figures are the official relative unit weights.
+
+Use them to calculate proportional examination marks.
+
+Implement a controlled rounding algorithm so the final examination always totals exactly 70 marks.
+
+The relative unit weights must be editable through the administrative specification system when a newer official document supersedes them.
+
+Verify the curriculum mapping for every unit before using these weights.
+
+Do not assume unit numbers are identical to unit IDs in Firestore.
+
+==================================================
+7. VERSIONED EXAMINATION BLUEPRINT ENGINE
+==================================================
+
+Create a dedicated examination blueprint engine.
+
+Every blueprint must record:
+
+- Academic year.
+- Subject.
+- Semester.
+- Grade.
+- Examination type.
+- Total marks.
+- Duration.
+- Question count range.
+- Assessment objectives.
+- Difficulty distribution.
+- Unit weight distribution.
+- Question type distribution.
+- Calculator policy.
+- Permitted reference materials.
+- Official source.
+- Source publication date.
+- Source version.
+- Verification status.
+
+Create two distinct blueprint categories:
+
+OFFICIAL_FORMAT_SIMULATION
+
+CUSTOM_PRACTICE_EXAMINATION
+
+Never present an invented examination blueprint as official.
+
+Allow administrators to update specifications without modifying application source code.
+
+Store specification changes in a controlled version history.
+
+==================================================
+8. EXAMINATION MODES
+==================================================
+
+Implement the following modes.
+
+A. FULL DIPLOMA MOCK EXAM
+
+A complete examination simulation according to the applicable subject blueprint.
+
+B. SEMESTER 1 MOCK EXAM
+
+Tests the first-semester curriculum according to its official unit weights.
+
+C. SEMESTER 2 MOCK EXAM
+
+Tests the second-semester curriculum according to its official unit weights.
+
+D. COMPREHENSIVE SUBJECT EXAM
+
+Covers the approved curriculum for a selected subject.
+
+E. PREVIOUS MINISTRY EXAMINATION
+
+Allows practice using official past papers and answer keys when available and permitted.
+
+F. TARGETED EXAMINATION
+
+Creates an examination focused on:
+
+- Weak lessons.
+- Specific units.
+- Specific learning objectives.
+- Selected difficulty levels.
+
+Clearly label targeted exams as practice examinations.
+
+G. TIMED PRACTICE EXAM
+
+Allows students to simulate full examination conditions.
+
+H. CUSTOM EXAMINATION
+
+Allows administrators to configure a fully custom blueprint.
+
+==================================================
+9. OFFICIAL PAST EXAMINATION LIBRARY
+==================================================
+
+Build an organized previous examination library.
+
+Use the Ministry archive:
+
+https://home.moe.gov.om/ar/zawity/212
+
+Categorize resources by:
+
+- Subject.
+- Academic year.
+- Semester.
+- Examination role.
+- Examination paper.
+- Answer key.
+- Source URL.
+- Availability.
+- Verification status.
+
+Support:
+
+- Examination paper viewing.
+- Permitted PDF import.
+- Source linking.
+- Answer key linking.
+- Examination metadata.
+- Search and filtering.
+
+Preserve the original source references.
+
+Do not reproduce or redistribute copyrighted papers unless appropriate permission allows it.
+
+If permission is unavailable, link to the official Ministry resource instead of copying it into the application.
+
+Distinguish official past examinations from newly generated mock examinations.
+
+==================================================
+10. EXAMINATION QUESTION CONSTRUCTION
+==================================================
+
+Construct full mock examinations from the approved question bank.
+
+Use:
+
+- Verified official questions where permitted.
+- Approved teacher-resource questions.
+- Approved administrator-created questions.
+- Reviewed AI-generated questions.
+
+Never use pending or rejected questions in formal simulations.
+
+The examination engine must select questions based on:
+
+1. Subject blueprint.
+2. Semester.
+3. Unit weights.
+4. Assessment objectives.
+5. Difficulty distribution.
+6. Required question types.
+7. Total marks.
+8. Total question count.
+
+Ensure the complete examination matches the blueprint.
+
+Do not simply select random questions.
+
+Do not expose the same question twice in one examination unless the blueprint explicitly allows it.
+
+Do not create artificial marks to fill missing examination requirements.
+
+If the approved bank is insufficient:
+
+- Display the exact missing categories.
+- Create a content gap report.
+- Request additional approved questions.
+- Do not generate fake examination completeness.
+
+==================================================
+11. FIVE-LEVEL PLATFORM DIFFICULTY MAPPING
+==================================================
+
+The existing STUDY CORE question bank supports five difficulty levels:
+
+1. foundation.
+2. basic_application.
+3. intermediate.
+4. advanced.
+5. olympiad.
+
+Official examination documents use three demand levels:
+
+LOW
+MEDIUM
+HIGH
+
+These two classification systems are not automatically identical.
+
+Create a separate official examination demand classification for each question.
+
+An administrator or qualified reviewer must approve uncertain mappings.
+
+Allow a configurable mapping between internal difficulty and official examination demand.
+
+Do not assume that every Level 1 or Level 2 question necessarily belongs to LOW without reviewing its cognitive demands.
+
+Use the official descriptors when classifying examination questions.
+
+==================================================
+12. ASSESSMENT OBJECTIVE MAPPING
+==================================================
+
+Map every examination question to the relevant assessment objective.
+
+For Science:
+
+- AO1.
+- AO2.
+
+For Advanced Mathematics:
+
+- AO1.
+- AO2.
+
+Provide a separate category for scientific inquiry and practical skills when applicable.
+
+Every examination blueprint must track the distribution of marks across its objectives.
+
+Do not invent cross-distribution values that are absent from the official tables.
+
+When the official document provides only separate totals for objectives and demand levels, satisfy those separate totals without claiming an unsupported intersection matrix.
+
+==================================================
+13. CALCULATOR AND REFERENCE MATERIAL POLICY
+==================================================
+
+Implement subject-specific examination resource policies.
+
+For Science:
+
+The 2026–2027 assessment document restricts calculators that can:
+
+- Store information through programming.
+- Execute programs.
+- Draw graphs.
+- Solve equations automatically.
+
+Use the exact applicable official calculator policy.
+
+For Advanced Mathematics:
+
+The official assessment document permits calculator use.
+
+Do not assume that every advanced programmable function is allowed.
+
+Implement configurable calculator and permitted-resource policies.
+
+Where the applicable official document provides or permits reference materials, include them in the examination interface as appropriate.
+
+Examples for Science when applicable:
+
+- Physical constants and formulas.
+- Periodic table.
+- Standard electrode potential information.
+- Relevant pH reference information.
+- DNA/RNA codon references.
+
+Do not show reference sheets automatically unless they are allowed for the specific subject and examination.
+
+==================================================
+14. PROFESSIONAL EXAMINATION INTERFACE
+==================================================
+
+Build a realistic examination environment.
+
+The student must see:
+
+- Examination title.
+- Subject.
+- Semester.
+- Duration.
+- Total marks.
+- Number of questions.
+- Instructions.
+- Calculator rules.
+- Permitted reference materials.
+- Start examination button.
+
+During the examination display:
+
+- Countdown timer.
+- Question number.
+- Total number of questions.
+- Current marks.
+- Question navigation.
+- Previous and next buttons.
+- Answer-saving status.
+- Flag for review.
+- Unanswered question count.
+- Examination progress.
+- Submit examination control.
+
+The interface must be distraction-free.
+
+Preserve Arabic RTL and scientific notation.
+
+Allow students to navigate freely unless a specific examination configuration restricts navigation.
+
+==================================================
+15. REALISTIC EXAMINATION CONDITIONS
+==================================================
+
+The simulation must reproduce examination conditions as closely as the platform permits.
+
+For formal simulation mode:
+
+- Start the timer on the server.
+- Record authoritative start and end timestamps.
+- Apply the configured duration.
+- Automatically submit when time expires.
+- Do not reveal answer keys before submission.
+- Preserve the student's submitted answers.
+- Prevent modification after final submission.
+
+For ordinary practice mode:
+
+- Allow pausing when configured.
+- Allow immediate feedback.
+- Allow resuming sessions.
+- Allow question-by-question explanations.
+
+Clearly distinguish PRACTICE MODE from FORMAL SIMULATION MODE.
+
+Support safe recovery from browser refresh or temporary connectivity loss according to the examination rules.
+
+Do not let students change server-authoritative examination timing.
+
+==================================================
+16. EXAMINATION PAPER PRESENTATION
+==================================================
+
+Build a professional examination paper layout inspired by the official Omani examination format.
+
+Include:
+
+- Examination cover.
+- Subject title.
+- Academic year.
+- Semester.
+- Total marks.
+- Duration.
+- General instructions.
+- Numbered questions.
+- Subquestion labels.
+- Marks assigned to questions.
+- Appropriate answer spaces.
+- Page numbering.
+
+For mathematical and scientific questions:
+
+- Render equations correctly.
+- Render chemical notation correctly.
+- Display clear graphs and diagrams.
+- Preserve symbols, units, and mathematical ordering.
+
+Allow the administrator to preview the paper before publication.
+
+Allow permitted examination papers to be printed or exported as PDF.
+
+Do not use official Ministry logos or imply government endorsement of generated mock examinations.
+
+Label all generated exams:
+
+STUDY CORE — MOCK EXAMINATION
+
+==================================================
+17. QUESTION PRESENTATION AND RESPONSE TYPES
+==================================================
+
+Follow the applicable official subject blueprint.
+
+For Science, provide suitable:
+
+- Multiple-choice questions.
+- Short-response questions.
+- Extended-response questions.
+- Scenario-based scientific applications when appropriate to the official specification.
+
+For Advanced Mathematics, provide suitable:
+
+- Multiple-choice questions.
+- Graph and point-plotting questions.
+- Short mathematical responses.
+- Extended mathematical solutions.
+- Written reasoning and proofs where required by the curriculum.
+
+Do not force all twelve general question-bank types into every official-format simulation.
+
+The actual examination paper must use the question formats supported by its subject's official specification.
+
+==================================================
+18. SECURE ANSWER SUBMISSION AND GRADING
+==================================================
+
+Reuse the completed Phase 4 server-side grading system.
+
+Never calculate final examination results exclusively in the browser.
+
+For each attempt:
+
+- Fetch safe public question data.
+- Keep answer keys private.
+- Save answers securely.
+- Submit through authenticated server routes.
+- Grade on the server.
+- Store authoritative marks.
+- Preserve the final attempt.
+
+Prevent:
+
+- Client-side score manipulation.
+- Private answer retrieval.
+- Unauthorized result updates.
+- Repeated submission manipulation.
+- Access to another student's attempts.
+
+Use Firebase ID token verification and existing administrator authorization.
+
+==================================================
+19. COMPREHENSIVE MARKING SCHEMES
+==================================================
+
+Create detailed marking schemes for all generated mock examinations.
+
+Each question must contain:
+
+- Expected answer.
+- Correct method.
+- Mark allocation.
+- Step marks.
+- Accepted alternatives.
+- Common invalid approaches.
+- Unit requirements.
+- Numerical tolerance.
+- Relevant explanation.
+
+For extended-response questions, use step-based marking rubrics.
+
+Do not award all marks solely for a correct final number when the official marking logic requires method marks.
+
+For descriptive answers:
+
+- Provide a grading rubric.
+- Support manual marking.
+- Allow AI-assisted draft feedback.
+- Require authorized review where human assessment is necessary.
+
+Never present an unreviewed AI grade as an official result.
+
+==================================================
+20. AUTOMATIC EXAMINATION RESULTS
+==================================================
+
+After submission, display:
+
+- Total marks obtained.
+- Maximum marks.
+- Percentage.
+- Correct answers.
+- Incorrect answers.
+- Unanswered questions.
+- Time taken.
+- Performance by unit.
+- Performance by learning objective.
+- Performance by assessment objective.
+- Performance by difficulty.
+- Performance by question type.
+
+Provide:
+
+- Complete answer review.
+- Correct answers.
+- Detailed solutions.
+- Marks awarded per step.
+- Lost marks explanation.
+- Weak-topic identification.
+
+Do not reveal explanations before the formal examination is submitted.
+
+==================================================
+21. ADVANCED EXAMINATION ANALYSIS
+==================================================
+
+Create a detailed examination analytics engine.
+
+Analyze:
+
+- Time per question.
+- Time per section.
+- Questions skipped.
+- Questions left unanswered.
+- Questions answered incorrectly.
+- Difficulty performance.
+- Unit performance.
+- AO1 and AO2 performance.
+- Numerical accuracy.
+- Extended-response performance.
+- Time management.
+
+Identify patterns such as:
+
+- Correct method but arithmetic error.
+- Incorrect formula selection.
+- Missing explanation steps.
+- Incorrect scientific terminology.
+- Incomplete response.
+- Difficulty managing examination time.
+
+Use actual evidence.
+
+Do not invent inferred mistakes that cannot be supported by the submitted answers.
+
+==================================================
+22. INTEGRATION WITH PHASE 5
+==================================================
+
+Reuse the completed Phase 5 intelligence system.
+
+After each completed mock examination:
+
+1. Update learning objective mastery using verified results.
+2. Update weakness detection.
+3. Identify units requiring revision.
+4. Update examination readiness.
+5. Generate revision tasks.
+6. Recommend suitable practice.
+7. Update the student's study planner.
+8. Recommend a follow-up mock examination.
+
+Explain all recommendations.
+
+Example:
+
+"خسرت درجات في مسائل الوحدة الثالثة من الفيزياء بسبب أخطاء في اختيار العلاقة الرياضية. نوصي بمراجعة الدرس ثم حل مجموعة مسائل تطبيقية."
+
+Only generate recommendations when supported by actual examination evidence.
+
+Do not duplicate Phase 5 components.
+
+==================================================
+23. PERSONALIZED FINAL EXAM PREPARATION
+==================================================
+
+Build a dedicated final examination preparation center.
+
+Allow students to see:
+
+- Subjects needing the most attention.
+- Units not yet assessed.
+- Weak learning objectives.
+- Upcoming revision tasks.
+- Previous mock examination results.
+- Current examination readiness.
+- Recommended mock examination.
+- Recommended study priorities.
+
+Use actual examination dates only when entered by the student or administrator or confirmed from an official calendar.
+
+Do not invent examination schedules.
+
+==================================================
+24. MOCK EXAM GENERATION
+==================================================
+
+Allow administrators to generate multiple examination versions.
+
+Support:
+
+- Version A.
+- Version B.
+- Version C.
+- Additional randomized versions.
+
+Each version must preserve the same:
+
+- Total marks.
+- Duration.
+- Unit weights.
+- Assessment objectives.
+- Difficulty distribution.
+- Official item count range.
+- Question type requirements.
+
+Use different approved questions when possible.
+
+Prevent duplicate questions within one paper.
+
+Keep answer keys and marking schemes securely separated.
+
+==================================================
+25. EXAMINATION LIBRARY
+==================================================
+
+Create a student examination library.
+
+Organize by:
+
+- Subject.
+- Semester.
+- Examination mode.
+- Year.
+- Difficulty.
+- Completion status.
+- Previous attempts.
+
+Show:
+
+- Available mock exams.
+- Completed mock exams.
+- Recommended exams.
+- Unfinished exams.
+- Previous Ministry papers where available.
+- Examination results.
+
+Allow searching and filtering.
+
+Preserve examination history.
+
+==================================================
+26. ADMINISTRATOR EXAMINATION CONTROL
+==================================================
+
+Extend the existing administrator dashboard.
+
+Create:
+
+A. Examination Blueprint Manager.
+B. Mock Examination Builder.
+C. Official Source Registry.
+D. Unit Weight Configuration.
+E. Examination Preview.
+F. Marking Scheme Editor.
+G. Examination Publishing.
+H. Examination Analytics.
+I. Exam Version Manager.
+
+Administrators must be able to:
+
+- Edit blueprint versions.
+- Update examination duration.
+- Configure marks.
+- Configure unit weights.
+- Configure question distribution.
+- Configure answer policies.
+- Upload permitted examination resources.
+- Review mock papers.
+- Approve generated examinations.
+- Publish and archive mock examinations.
+
+All modifications must be versioned.
+
+Do not overwrite active official specifications silently.
+
+==================================================
+27. DATABASE ARCHITECTURE
+==================================================
+
+Extend the existing Firebase architecture.
+
+Potential logical collections:
+
+- examinationSpecifications.
+- examinationBlueprints.
+- examinationVersions.
+- mockExaminations.
+- mockExaminationPapers.
+- mockExaminationAnswerKeys.
+- examinationAttempts.
+- examinationSubmissions.
+- examinationMarkingSchemes.
+- examinationReports.
+- officialExaminationSources.
+- examinationSpecificationHistory.
+
+Adapt these to existing collections where possible.
+
+Avoid unnecessary duplicate databases.
+
+Maintain:
+
+- Server-side grading.
+- Student data isolation.
+- Administrator permissions.
+- Private answer protection.
+- Efficient pagination.
+- Historical attempt preservation.
+- Specification version history.
+
+Do not delete existing Phase 4 or Phase 5 data.
+
+Do not perform destructive production migrations without explicit approval.
+
+==================================================
+28. DESIGN AND ARABIC EXPERIENCE
+==================================================
+
+Preserve the existing STUDY CORE visual identity.
+
+Maintain:
+
+- Arabic RTL.
+- Existing fonts.
+- Existing colors.
+- Existing dark and light modes.
+- Responsive desktop and mobile layouts.
+- Accessible controls.
+
+Examination mode should use a more focused, distraction-free layout.
+
+The actual question paper should be clean and professional.
+
+Use readable formulas and diagrams.
+
+Do not overcrowd the examination screen.
+
+==================================================
+29. TESTING
+==================================================
+
+Test all examination specifications.
+
+### Science examination tests
+
+- 70 total marks.
+- Three-hour duration.
+- 35–45 item count.
+- Twelve MCQ items.
+- AO1 24 marks.
+- AO2 46 marks.
+- Low demand 28 marks.
+- Medium demand 28 marks.
+- High demand 14 marks.
+- At least two extended-response questions.
+- Unit weight distribution for Biology.
+- Unit weight distribution for Physics.
+- Unit weight distribution for Chemistry.
+
+### Advanced Mathematics tests
+
+- 70 total marks.
+- Three-hour duration.
+- 25–30 item count.
+- Twelve one-mark MCQs.
+- Short response questions worth 2–4 marks.
+- At least two long responses worth 5–6 marks.
+- AO1 35 marks.
+- AO2 35 marks.
+- Difficulty 14/14/7 within each objective.
+- First-semester unit weights.
+- Second-semester unit weights.
+
+### General examination tests
+
+- Blueprint validation.
+- Mark total validation.
+- Unit weight rounding.
+- Question uniqueness.
+- Official source metadata.
+- Timer accuracy.
+- Auto submission.
+- Answer persistence.
+- Server-side grading.
+- Marking schemes.
+- Result persistence.
+- PDF export.
+- Student authorization.
+- Administrator permissions.
+- Phase 5 analytics integration.
+
+Run:
+
+npm run lint
+npm run build
+npm test
+
+Preserve all previous passing tests.
+
+Do not fabricate test results.
+
+Test browser interface at:
+
+- Desktop 1440×900.
+- Mobile 390×844.
+
+==================================================
+30. IMPLEMENTATION ORDER
+==================================================
+
+Build Phase 6 in controlled subphases.
+
+6A — Official Examination Specification Registry.
+
+6B — Subject-Specific Examination Blueprints.
+
+6C — Mock Examination Builder.
+
+6D — Professional Examination Interface.
+
+6E — Secure Submission and Grading Integration.
+
+6F — Marking Schemes and Detailed Results.
+
+6G — Examination Analytics.
+
+6H — Personalized Diploma Preparation Center.
+
+6I — Official Past Examination Library Integration.
+
+6J — Final Quality Assurance.
+
+Complete each subphase and test it before proceeding.
+
+Do not duplicate existing Phase 4 examination functionality.
+
+Do not delete Phase 5 student intelligence features.
+
+If execution limits are reached, preserve all work and provide a precise continuation report.
+
+==================================================
+31. FIRST IMPLEMENTATION
+==================================================
+
+Start by auditing the current project.
+
+Then:
+
+1. Verify actual Phase 4 examination functionality.
+2. Verify actual Phase 5 intelligence functionality.
+3. Inspect the two official 2026–2027 assessment documents.
+4. Register their versions and source references.
+5. Build and validate the Science examination blueprints.
+6. Build and validate the Advanced Mathematics examination blueprints.
+7. Check unit mappings.
+8. Generate a specification integrity report.
+
+Implement the specification registry and subject-specific blueprints first.
+
+Do not begin generating full mock examination papers until the blueprints pass validation.
+
+Do not invent any missing specifications.
+
+==================================================
+32. FINAL DELIVERABLES
+==================================================
+
+The completed Phase 6 must include:
+
+1. Official specification registry.
+2. Science examination blueprints.
+3. Advanced Mathematics examination blueprints.
+4. First-semester mock examinations.
+5. Second-semester mock examinations.
+6. Comprehensive mock examinations.
+7. Previous Ministry examination library.
+8. Professional examination interface.
+9. Accurate countdown and submission.
+10. Secure answer handling.
+11. Comprehensive marking schemes.
+12. Automatic and manual grading.
+13. Detailed examination reports.
+14. Time management analysis.
+15. Unit-level performance analysis.
+16. AO1 and AO2 analysis.
+17. Final examination readiness center.
+18. Phase 5 personalized recommendations.
+19. Examination administration dashboard.
+20. PDF paper and answer-sheet exports where supported.
+21. Automated testing report.
+22. Arabic technical documentation.
+
+The final report must distinguish:
+
+- Implemented features.
+- Actually tested features.
+- Successful tests.
+- Failed tests.
+- Specifications verified from official documents.
+- Specifications requiring additional confirmation.
+- Questions awaiting approval.
+- Features requiring external configuration.
+- Remaining work.
+
+==================================================
+FINAL DIRECTIVE
+==================================================
+
+Phase 6 must transform STUDY CORE into a realistic preparation environment for Oman's General Education Diploma examinations.
+
+The student must be able to enter a mock examination, experience its time constraints, answer questions matching the official subject blueprint, submit the paper, receive a detailed marking report, and understand exactly what needs improvement.
+
+Use the separate official specifications for Science and Advanced Mathematics.
+
+Do not assume all subjects share the same examination structure.
+
+Preserve completed Phase 4 and Phase 5 functionality.
+
+Do not invent official examination rules.
+
+Do not label generated mock papers as official examinations.
+
+Prioritize accuracy, fairness, examination integrity, and realistic preparation.
+
+Start by inspecting the existing project and implementing Subphase 6A and 6B.
