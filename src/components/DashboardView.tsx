@@ -243,12 +243,12 @@ export function DashboardView({
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-12 h-full">
-                  <div className="sm:col-span-5 relative min-h-[170px] bg-slate-900">
+                  <div className="sm:col-span-5 relative w-full h-48 sm:h-full min-h-[180px] bg-slate-900 overflow-hidden">
                     <img
                       src={subject.imageUrl}
                       alt={subject.titleAr}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
                   <div className="sm:col-span-7 p-5 flex flex-col justify-between gap-4">

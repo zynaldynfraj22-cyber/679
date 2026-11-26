@@ -8,6 +8,7 @@ export type AppRoute =
   | 'lesson'
   | 'question_bank'
   | 'diploma_exams'
+  | 'source_quality'
   | 'intelligence'
   | 'planner'
   | 'revision'
@@ -15,7 +16,8 @@ export type AppRoute =
   | 'reports'
   | 'tutor'
   | 'coverage_cms'
-  | 'google_drive';
+  | 'google_drive'
+  | 'settings';
 
 interface TopNavProps {
   activeRoute: AppRoute;
@@ -45,6 +47,7 @@ export function TopNav({
     { id: 'subjects', label: 'المواد الدراسية' },
     { id: 'question_bank', label: 'بنك الأسئلة' },
     { id: 'diploma_exams', label: 'الامتحانات الوزارية' },
+    { id: 'source_quality', label: 'المصادر والجودة (2000)' },
     { id: 'intelligence', label: 'الذكاء الشخصي' },
     { id: 'planner', label: 'خطة الدراسة' },
     { id: 'revision', label: 'المراجعة الذكية' },

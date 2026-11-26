@@ -169,12 +169,12 @@ export function SubjectExplorer({
           </div>
         </div>
 
-        <div className="lg:col-span-4 min-h-[200px] bg-slate-900">
+        <div className="lg:col-span-4 relative w-full h-56 lg:h-full min-h-[220px] bg-slate-900 overflow-hidden">
           <img
             src={subject.imageUrl}
             alt={subject.titleAr}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
       </section>

@@ -1104,6 +1104,11 @@ export function auditQuestionBankIntegrity(params: {
     chemistry: { total: 0, approved: 0 },
     biology: { total: 0, approved: 0 },
     math: { total: 0, approved: 0 },
+    islamic: { total: 0, approved: 0 },
+    arabic: { total: 0, approved: 0 },
+    english: { total: 0, approved: 0 },
+    social_studies: { total: 0, approved: 0 },
+    german: { total: 0, approved: 0 },
   };
   const coverageByDifficulty: Record<DifficultyLevel, { total: number; approved: number }> = {
     foundation: { total: 0, approved: 0 },

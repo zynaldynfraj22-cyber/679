@@ -1,4 +1,13 @@
-export type SubjectId = 'physics' | 'chemistry' | 'biology' | 'math';
+export type SubjectId =
+  | 'physics'
+  | 'chemistry'
+  | 'biology'
+  | 'math'
+  | 'islamic'
+  | 'arabic'
+  | 'english'
+  | 'social_studies'
+  | 'german';
 
 export type Semester = 1 | 2;
 

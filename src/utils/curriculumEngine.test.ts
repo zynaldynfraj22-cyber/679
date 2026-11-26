@@ -294,7 +294,7 @@ test('parseAdminDraftJson always marks drafts as aiGenerated and NEEDS_REVIEW', 
 });
 
 test('Oman Grade 12 preloaded bundle has 34 units, 40 complete lessons, and 147 official catalog slots with zero semester mismatches', () => {
-  assert.equal(OMAN_SUBJECTS.length, 4);
+  assert.equal(OMAN_SUBJECTS.length, 9);
   assert.equal(OMAN_UNITS.length, 34);
   assert.equal(PRELOADED_LESSONS.length, 40);
   assert.equal(OFFICIAL_CURRICULUM_CATALOG.length, 147);

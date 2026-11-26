@@ -60,6 +60,12 @@ import { SmartRevisionView } from './components/SmartRevisionView';
 import { StudentGoalsView } from './components/StudentGoalsView';
 import { StudentReportsView } from './components/StudentReportsView';
 import { DiplomaExamHub } from './components/DiplomaExamHub';
+import { SourceQualityDashboard } from './components/SourceQualityDashboard';
+import { Sidebar } from './components/Sidebar';
+import { Topbar } from './components/Topbar';
+import { RedesignedDashboard } from './components/RedesignedDashboard';
+import { SettingsView } from './components/SettingsView';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
@@ -93,6 +99,9 @@ export default function App() {
   const [activeSemester, setActiveSemester] = React.useState<Semester | 'all'>('all');
 
   const [darkMode, setDarkMode] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = React.useState(false);
+  const [notificationModalOpen, setNotificationModalOpen] = React.useState(false);
 
   // Firebase Auth & Sync State
   const [user, setUser] = React.useState<User | null>(null);
@@ -486,54 +495,73 @@ export default function App() {
         dir="rtl"
         className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
       >
-        <TopNav
+        <Sidebar
           activeRoute={activeRoute}
           onNavigate={(route) => {
             setActiveRoute(route);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           user={user}
-          authLoading={authLoading}
-          onSignIn={() => void handleSignIn()}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          mobileOpen={sidebarMobileOpen}
+          onCloseMobile={() => setSidebarMobileOpen(false)}
           onSignOut={() => void handleSignOut()}
-          darkMode={darkMode}
-          onToggleDarkMode={() => setDarkMode((prev) => !prev)}
         />
 
-        {authNotice && (
-          <div className="max-w-[1280px] w-full mx-auto px-4 sm:px-6 pt-4">
-            <div
-              role="alert"
-              className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200"
-            >
-              {authNotice}
-            </div>
-          </div>
-        )}
+        <Topbar
+          user={user}
+          authLoading={authLoading}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+          onToggleMobileMenu={() => setSidebarMobileOpen(true)}
+          onOpenNotifications={() => setNotificationModalOpen(true)}
+          onSignIn={() => void handleSignIn()}
+          collapsed={sidebarCollapsed}
+        />
 
-        <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-8">
-          {activeRoute === 'dashboard' && (
-            <DashboardView
-              subjects={subjects}
-              lessons={lessons}
-              progressMap={progressMap}
-              attempts={attempts}
-              activeSemester={activeSemester}
-              onChangeSemester={(sem) => void handleChangeSemester(sem)}
-              onOpenSubject={(id) => {
-                setSelectedSubjectId(id);
-                setActiveRoute('subjects');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onOpenLesson={handleOpenLesson}
-              onOpenQuestionBank={() => setActiveRoute('question_bank')}
-              onOpenTutor={() => setActiveRoute('tutor')}
-              questionCount={questions.length}
-              isAdminUser={isAdminUser}
-              onSeedFirestore={handleSeedFirestore}
-              seedingStatus={seedingStatus}
-            />
+        <div
+          className={`flex-1 transition-all duration-300 flex flex-col ${
+            sidebarCollapsed ? 'lg:mr-20' : 'lg:mr-72'
+          }`}
+        >
+          {authNotice && (
+            <div className="max-w-[1280px] w-full mx-auto px-4 sm:px-8 pt-4">
+              <div
+                role="alert"
+                className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-amber-900 dark:text-amber-200 shadow-xs"
+              >
+                {authNotice}
+              </div>
+            </div>
           )}
+
+          <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-8 py-8">
+            {activeRoute === 'dashboard' && (
+              <RedesignedDashboard
+                subjects={subjects}
+                lessons={lessons}
+                progressMap={progressMap}
+                attempts={attempts}
+                onOpenSubject={(id) => {
+                  setSelectedSubjectId(id as any);
+                  setActiveRoute('subjects');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onOpenLesson={handleOpenLesson}
+                onOpenQuestionBank={() => setActiveRoute('question_bank')}
+                onNavigateRoute={(route) => setActiveRoute(route as any)}
+                displayName={user?.displayName ?? userProfile?.displayName}
+              />
+            )}
+
+            {activeRoute === 'settings' && (
+              <SettingsView
+                user={user}
+                darkMode={darkMode}
+                onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+              />
+            )}
 
           {activeRoute === 'subjects' && (
             <SubjectExplorer
@@ -625,6 +653,13 @@ export default function App() {
               onStartSimulation={(blueprintId) => {
                 setActiveRoute('question_bank');
               }}
+            />
+          )}
+
+          {activeRoute === 'source_quality' && (
+            <SourceQualityDashboard
+              subjects={subjects}
+              lessons={lessons}
             />
           )}
 
@@ -749,6 +784,8 @@ export default function App() {
           )}
         </main>
 
+        </div>
+
         <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-6 mt-12">
           <div className="max-w-[1280px] mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
             <p>
@@ -757,6 +794,11 @@ export default function App() {
             <p>محتوى تعليمي مركزي متوافق مع مناهج وزارة التربية والتعليم</p>
           </div>
         </footer>
+
+        <NotificationCenterModal
+          isOpen={notificationModalOpen}
+          onClose={() => setNotificationModalOpen(false)}
+        />
       </div>
     </ErrorBoundary>
   );
